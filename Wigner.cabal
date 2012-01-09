@@ -1,0 +1,29 @@
+Name:                Wigner
+Version:             0.1.0
+Synopsis:            Symbolic algebra for Wigner method
+Homepage:            http://github.com/Manticore/wigner
+License:             BSD3
+License-file:        LICENSE
+Author:              Bogdan Opanchuk <mantihor@gmail.com>
+Maintainer:          Bogdan Opanchuk mantihor@gmail.com
+
+Category:            Math
+Build-type:          Simple
+Cabal-version:       >=1.2
+
+Extra-source-files:
+  examples/*.hs
+
+Library
+  Hs-source-dirs: src
+  Extensions:
+    MultiParamTypeClasses,
+    FunctionalDependencies,
+    FlexibleInstances,
+    OverlappingInstances,
+    UndecidableInstances
+  Exposed-modules:
+    Wigner
+
+  Build-Depends:
+    base >= 4.4.0.0
