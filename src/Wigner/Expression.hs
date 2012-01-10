@@ -162,7 +162,7 @@ module Wigner.Expression where
 	showTexWithSign x = "+" ++ showTex x
 
 	instance Texable Expr where
-		showTex (Sum (x:xs)) = "(" ++ (showTex x) ++ (intercalate " " (map showTexWithSign xs)) ++ ")"
+		showTex (Sum (x:xs)) = "(" ++ (showTex x) ++ " " ++ (intercalate " " (map showTexWithSign xs)) ++ ")"
 		showTex (Product c xs) = coeff ++ (intercalate " " (map showTex xs)) where
 			coeff = if c == 1 then "" else (showTex c) ++ " "
 		showTex (Conjugated x) = (showTex x) ++ "^*"
