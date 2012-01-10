@@ -64,6 +64,8 @@ module Wigner.Expression where
 		compare (OperatorValue x) (ComplexValue y) = compare x y
 		compare (ComplexValue x) (ComplexValue y) = compare x y
 		compare (Constant x) (Constant y) = EQ
+		compare (Constant x) y = LT
+		compare x (Constant y) = GT
 
 	instance ComplexValued Expr where
 		conjugate (Sum xs) = Sum (map conjugate xs)
