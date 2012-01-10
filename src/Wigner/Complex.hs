@@ -1,58 +1,35 @@
-{-# LANGUAGE MultiParamTypeClasses, FunctionalDependencies, FlexibleInstances,
-	OverlappingInstances, UndecidableInstances #-}
-
-module Wigner.Complex (Complex((:+)), ComplexContainer,
-	makeComplex, realPart, imagPart, conjugate, ComplexValued) where
+module Wigner.Complex (Complex((:+)), conjugate, ComplexValued) where
 
 	import Data.Ratio
 	import Wigner.Texable
 
-	class ComplexContainer a b | a -> b where
-		realPart :: a -> b
-		imagPart :: a -> b
-		makeComplex :: b -> b -> a
+	data Complex a = a :+ a deriving (Show, Eq)
 
 	class ComplexValued a where
 		conjugate :: a -> a
 
-	data Complex a = a :+ a deriving (Show)
+	instance (Num a) => ComplexValued (Complex a) where
+		conjugate (x :+ y) = x :+ (-y)
 
-	instance ComplexContainer (Complex a) a where
-		realPart (x :+ y) = x
-		imagPart (x :+ y) = y
-		makeComplex x y = x :+ y
-
-	instance (ComplexContainer a b, Num b) => ComplexValued a where
-		conjugate x = makeComplex (realPart x) (-imagPart x)
-
-	instance (ComplexContainer a b, Eq b) => Eq a where
-		x == y = (realPart x == realPart y) && (imagPart x == imagPart y)
-
-	instance (ComplexContainer a b, Show a, Num b) => Num a where
-		negate x = makeComplex (negate (realPart x)) (negate (imagPart x))
-		x + y = makeComplex (realPart x + realPart y) (imagPart x + imagPart y)
-		x * y = makeComplex
-			(realPart x * realPart y - imagPart x * imagPart y)
-			(realPart x * imagPart y + realPart x * imagPart y)
+	instance (Num a) => Num (Complex a) where
+		negate (x :+ y) = (negate x) :+ (negate y)
+		(x1 :+ y1) + (x2 :+ y2) = (x1 + x2) :+ (y1 + y2)
+		(x1 :+ y1) * (x2 :+ y2) = (x1 * x2 - y1 * y2) :+ (x1 * y2 + y1 * x2)
 		abs x = undefined
 		signum x = undefined
-		fromInteger x = makeComplex (fromInteger x) (fromInteger 0)
+		fromInteger x = (fromInteger x) :+ (fromInteger 0)
 
-	instance (ComplexContainer a b, Show a, Fractional b) => Fractional a where
-		x / y = makeComplex ((x1 * y1 + x2 * y2) / m) ((x2 * y1 - x1 * y2) / m) where
-			x1 = realPart x
-			x2 = imagPart x
-			y1 = realPart y
-			y2 = imagPart y
-			m = y1 * y1 + y2 * y2
-		fromRational x = makeComplex (fromRational x) (fromRational 0)
+	instance (Fractional a) => Fractional (Complex a) where
+		(x1 :+ y1) / (x2 :+ y2) = ((x1 * x2 + y2 * y2) / m) :+ ((x1 * y2 - y1 * x2) / m) where
+			m = x2 * x2 + y2 * y2
+		fromRational x = (fromRational x) :+ (fromRational 0)
 
-	instance (ComplexContainer a b, Texable b, Ord b, Num b) => Texable a where
-		showTex x
-			| im == 0 = showTex re
-			| re == 0 = (showTex im) ++ "i"
-			| otherwise = "(" ++ (showTex re) ++ sign ++ (showTex im) ++ "i)"
+	instance (Texable a, Ord a, Num a) => Texable (Complex a) where
+		showTex (x :+ y)
+			| y == 0 = sx
+			| x == 0 = sy ++ "i"
+			| otherwise = "(" ++ sx ++ sign ++ sy ++ "i)"
 			where
-				re = realPart x
-				im = imagPart x
-				sign = if im < 0 then "-" else "+"
+				sx = showTex x
+				sy = showTex y
+				sign = if y < 0 then "-" else "+"

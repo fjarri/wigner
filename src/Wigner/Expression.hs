@@ -143,12 +143,9 @@ module Wigner.Expression where
 					else "(" ++ intercalate " " (map showTex variables) ++ ")"
 
 	showTexWithSign :: Expr -> String
-	showTexWithSign (Constant x)
-		| re > 0 || (re == 0 && im > 0) || (re /= 0 && im /= 0) = "+" ++ (showTex x)
-		| otherwise = showTex x
-		where
-			re = realPart x
-			im = imagPart x
+	showTexWithSign (Constant (x :+ y))
+		| x > 0 || (x == 0 && y > 0) || (x /= 0 && y /= 0) = "+" ++ (showTex (x :+ y))
+		| otherwise = showTex (x :+ y)
 	showTexWithSign (Product c xs) = coeff ++ showTex (Product 1 xs) where
 		coeff = if c == 1 then "" else (showTexWithSign (Constant c)) ++ " "
 	showTexWithSign x = "+" ++ showTex x
