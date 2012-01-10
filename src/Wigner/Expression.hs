@@ -107,10 +107,19 @@ module Wigner.Expression where
 		x * Constant 0 = Constant 0
 
 		(Constant x) * (Sum xs) = Sum (map ((Constant x) *) xs)
+		(Sum xs) * (Constant x) = Sum (map ((Constant x) *) xs)
 
 		(Product c1 xs1) * (Product c2 xs2) = Product (c1 * c2) (xs1 ++ xs2)
+
+		(Constant x) * (Product c y) = (Product x []) * (Product c y)
+		(Product c x) * (Constant y) = (Product y []) * (Product c x)
+
 		x * (Product c xs) = (Product 1 [x]) * (Product c xs)
 		(Product c xs) * x = (Product c xs) * (Product 1 [x])
+
+		(Constant x) * y = Product x [y]
+		x * (Constant y) = Product y [x]
+
 		x * y = Product 1 [x, y]
 
 		fromInteger x = Constant (fromInteger x :: ComplexRational)
