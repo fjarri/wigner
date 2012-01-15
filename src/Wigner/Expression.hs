@@ -1,177 +1,218 @@
-{-# LANGUAGE RecordWildCards, NamedFieldPuns #-}
+{-# LANGUAGE TypeSynonymInstances, FlexibleInstances #-}
+
+{-
+1) Construct operators:
+    Sum [F], [NO] : (*), (+) -> Sum [F], [NO]
+2) Mark expectations
+    Sum [F], [NO] : expectation, deltaSquared, variance ->
+        Sum [F, Expectation] where Expectation = Ex NO | Ex SO | Ex Product
+3) Normal order to symmetric order
+    [F], [NO] -> Sum [F], [SO]
+4) Evaluate expectations
+    [F], [NO] -> Sum [F], [SO]
+    [SO] -> Sum [Exp SO] -> Sum [Exp Product]
+5) Wigner transformation
+    [NO] -> Sum [[F], [D], ...]
+    Sum [[F], [D], ...] -> Sum [D], [F]
+-}
 
 module Wigner.Expression where
 
-	import Wigner.Complex
-	import Wigner.Texable
-	import Data.List (sort, intercalate)
+    import Wigner.Complex
+    import Wigner.Texable
+    import Data.List (sort, intercalate)
 
-	data Symbol = SymbolString String deriving (Show, Eq, Ord)
-	data Index = IndexSymbol Symbol | IndexInt Int deriving (Show, Eq, Ord)
-	data Variable = VariableSymbol Symbol deriving (Show, Eq, Ord)
-	type ComplexRational = Complex Rational
+    type ComplexRational = Complex Rational
 
-	data Function = Function {
-		symbol :: Symbol,
-		indices :: [Index],
-		variables :: [Variable]
-		} deriving (Show, Eq)
+    data Symbol = Symbol String deriving (Show, Eq, Ord)
+    data Index = IndexSymbol Symbol | IndexInt Int deriving (Show, Eq, Ord)
+    data Variable = VariableSymbol Symbol deriving (Show, Eq, Ord)
+    data Element = Element Symbol [Index] [Variable] deriving (Show, Eq)
 
-	instance Ord Function where
-		compare
-			(Function {symbol=s1, indices=i1, variables=v1})
-			(Function {symbol=s2, indices=i2, variables=v2})
-			= compare (s1, v1, i1) (s2, v2, i2)
+    data Sum a = Sum [a]
+               | Constant ComplexRational
+               deriving (Show, Eq)
 
-	class MatrixValued a where
-		transpose :: a -> a
+    type OpExpr = Sum OpTerm
+    data OpTerm = OpTerm ComplexRational [Function] (Maybe OpFactor)
+    data OpFactor = NormalProduct [Operator]
+                  | SymmetricProduct [Operator]
+                  deriving (Show, Eq)
 
-	dagger :: (ComplexValued a, MatrixValued a) => a -> a
-	dagger = conjugate . transpose
+    type FuncExpr = Sum FuncTerm
+    data FuncTerm = FuncTerm ComplexRational [FuncFactor]
+    data FuncFactor = OpExpectation OpFactor
+                    | FuncExpectation [Function]
+                    | FuncProduct [Function]
+                    | DiffProduct [Differential]
+                    deriving (Show, Eq)
 
-	-- | NormalProduct [Expr] | SymmetricProduct [Expr]
-	data Expr = Sum [Expr]
-		| Product ComplexRational [Expr]
-		| Conjugated Expr
-		| Transposed Expr
-		| HermiteConjugated Expr
-		| Power Expr Integer
-		| OperatorValue Function
-		| ComplexValue Function
-		| Constant ComplexRational
-		deriving (Show, Eq)
-
-	instance Ord Expr where
-
-		compare (Product c1 xs1) (Product c2 xs2) = compare xs1 xs2
-		compare (Product c xs) y = compare (Product c xs) (Product 1 [y])
-		compare x (Product c ys) = compare (Product 1 [x]) (Product c ys)
-
-		compare (Conjugated x) y = compare x y
-		compare x (Conjugated y) = compare x y
-
-		compare (Transposed x) y = compare x y
-		compare x (Transposed y) = compare x y
-
-		compare (HermiteConjugated x) y = compare x y
-		compare x (HermiteConjugated y) = compare x y
-
-		compare (Power x e) y = compare x y
-		compare x (Power y e) = compare x y
-
-		compare (OperatorValue x) (OperatorValue y) = compare x y
-		compare (ComplexValue x) (OperatorValue y) = compare x y
-		compare (OperatorValue x) (ComplexValue y) = compare x y
-		compare (ComplexValue x) (ComplexValue y) = compare x y
-		compare (Constant x) (Constant y) = EQ
-		compare (Constant x) y = LT
-		compare x (Constant y) = GT
-
-	instance ComplexValued Expr where
-		conjugate (Sum xs) = Sum (map conjugate xs)
-		conjugate (Product c xs) = Product (conjugate c) (map conjugate xs)
-		conjugate (Power x e) = Power (conjugate x) e
-		conjugate (Conjugated x) = x
-		conjugate (Transposed x) = HermiteConjugated x
-		conjugate (HermiteConjugated x) = Transposed x
-		conjugate (Constant x) = Constant (conjugate x)
-		conjugate x = Conjugated x
-
-	instance MatrixValued Expr where
-		transpose (Sum xs) = Sum (map transpose xs)
-		transpose (Product c xs) = Product c (map transpose (reverse xs))
-		transpose (Power x e) = Power (transpose x) e
-		transpose (Transposed x) = x
-		transpose (Conjugated x) = HermiteConjugated x
-		transpose (HermiteConjugated x) = Conjugated x
-		transpose (ComplexValue x) = ComplexValue x
-		transpose (Constant x) = Constant x
-		transpose x = Transposed x
-
-	instance Num Expr where
-		negate (Sum x) = Sum (map negate x)
-		negate (Constant x) = Constant (negate x)
-		negate (Product c xs) = Product (negate c) xs
-		negate x = (Constant (-1 :: ComplexRational)) * x
-
-		Constant 0 + x = x
-		x + Constant 0 = x
-		(Sum xs) + (Sum ys) = Sum $ sort (xs ++ ys)
-		x + (Sum xs) = Sum [x] + Sum xs
-		(Sum xs) + x = Sum xs + Sum [x]
-		x + y = Sum [x] + Sum [y]
-
-		Constant 1 * x = x
-		x * Constant 1 = x
-		Constant 0 * x = Constant 0
-		x * Constant 0 = Constant 0
-
-		(Constant x) * (Sum xs) = Sum (map ((Constant x) *) xs)
-		(Sum xs) * (Constant x) = Sum (map ((Constant x) *) xs)
-
-		(Product c1 xs1) * (Product c2 xs2) = Product (c1 * c2) (xs1 ++ xs2)
-
-		(Constant x) * (Product c y) = (Product x []) * (Product c y)
-		(Product c x) * (Constant y) = (Product y []) * (Product c x)
-
-		x * (Product c xs) = (Product 1 [x]) * (Product c xs)
-		(Product c xs) * x = (Product c xs) * (Product 1 [x])
-
-		(Constant x) * y = Product x [y]
-		x * (Constant y) = Product y [x]
-
-		x * y = Product 1 [x, y]
-
-		fromInteger x = Constant (fromInteger x :: ComplexRational)
-
-		abs x = undefined
-		signum x = undefined
-
-	instance Fractional Expr where
-		x / (Constant y) = Constant (1 / y) * x
-		fromRational x = Constant (fromRational x :: ComplexRational)
+    data Function = Func Element Integer
+                  | ConjFunc Element Integer
+                  deriving (Show, Eq)
+    data Operator = Op Element Integer
+                  | DaggerOp Element Integer
+                  deriving (Show, Eq)
+    data Differential = Diff Element Integer
+                      | ConjDiff Element Integer
+                      deriving (Show, Eq)
 
 
+    instance Ord Element where
+        compare (Element s1 i1 v1) (Element s2 i2 v2) = compare (s1, v1, i1) (s2, v2, i2)
+    instance Ord Function where
+        compare (Func e1 p1) (Func e2 p2) = compare e1 e2
+        compare (Func e1 p1) (ConjFunc e2 p2) = compare e1 e2
+        compare (ConjFunc e1 p1) (Func e2 p2) = compare e1 e2
+        compare (ConjFunc e1 p1) (ConjFunc e2 p2) = compare e1 e2
+    instance Ord Operator where
+        compare (Op e1 p1) (Op e2 p2) = compare e1 e2
+        compare (Op e1 p1) (DaggerOp e2 p2) = compare e1 e2
+        compare (DaggerOp e1 p1) (Op e2 p2) = compare e1 e2
+        compare (DaggerOp e1 p1) (DaggerOp e2 p2) = compare e1 e2
+    instance Ord Differential where
+        compare (Diff e1 p1) (Diff e2 p2) = compare e1 e2
+        compare (Diff e1 p1) (ConjDiff e2 p2) = compare e1 e2
+        compare (ConjDiff e1 p1) (Diff e2 p2) = compare e1 e2
+        compare (ConjDiff e1 p1) (ConjDiff e2 p2) = compare e1 e2
 
-	instance Texable Symbol where
-		showTex (SymbolString s) = s
 
-	instance Texable Index where
-		showTex (IndexSymbol s) = showTex s
-		showTex (IndexInt s) = show s
+    class OpExpression a where
+        makeOpExpr :: a -> OpExpr
 
-	instance Texable Variable where
-		showTex (VariableSymbol s) = showTex s
+    instance OpExpression OpExpr where makeOpExpr = id
+    instance OpExpression ComplexRational where makeOpExpr x = Constant x
+    instance OpExpression Integer where makeOpExpr x = makeOpExpr ((fromInteger x :: Rational) :+ 0)
+    instance OpExpression Function where makeOpExpr x = Sum [OpTerm 1 [x] Nothing]
+    instance OpExpression Operator where makeOpExpr x = Sum [OpTerm 1 [] (Just (NormalProduct [x]))]
 
-	instance Texable Function where
-		showTex (Function {symbol, indices, variables}) =
-			(showTex symbol) ++ indices_str ++ variables_str where
-				indices_str = if indices == []
-					then ""
-					else "_{" ++ intercalate " " (map showTex indices) ++ "}"
-				variables_str = if variables == []
-					then ""
-					else "(" ++ intercalate " " (map showTex variables) ++ ")"
 
-	showTexWithSign :: Expr -> String
-	showTexWithSign (Constant (x :+ y))
-		| x > 0 || (x == 0 && y > 0) || (x /= 0 && y /= 0) = "+" ++ (showTex (x :+ y))
-		| otherwise = showTex (x :+ y)
-	showTexWithSign (Product c xs) = coeff ++ showTex (Product 1 xs) where
-		coeff = if c == 1 then "" else (showTexWithSign (Constant c)) ++ " "
-	showTexWithSign x = "+" ++ showTex x
+    instance (ComplexValued a) => ComplexValued (Sum a) where
+        conjugate (Sum ts) = Sum (map conjugate ts)
+        conjugate (Constant c) = Constant (conjugate c)
+    instance ComplexValued FuncTerm where
+        conjugate (FuncTerm c fs) = FuncTerm (conjugate c) (map conjugate fs)
+    instance ComplexValued FuncFactor where
+        -- technically we can, just do not need to, and I do not want to bloat the set of types
+        conjugate (OpExpectation op) = error "Cannot conjugate an expectation of operator product"
+        conjugate (FuncExpectation fs) = FuncExpectation (map conjugate fs)
+        conjugate (FuncProduct fs) = FuncProduct (map conjugate fs)
+        conjugate (DiffProduct ds) = DiffProduct (map conjugate ds)
+    instance ComplexValued Function where
+        conjugate (Func e p) = ConjFunc e p
+        conjugate (ConjFunc e p) = Func e p
+    instance ComplexValued Differential where
+        conjugate (Diff e p) = ConjDiff e p
+        conjugate (ConjDiff e p) = Diff e p
 
-	instance Texable Expr where
-		showTex (Sum (x:xs)) = "(" ++ (showTex x) ++ " " ++ (intercalate " " (map showTexWithSign xs)) ++ ")"
-		showTex (Product c xs) = coeff ++ (intercalate " " (map showTex xs)) where
-			coeff = if c == 1 then "" else (showTex c) ++ " "
-		showTex (Conjugated x) = (showTex x) ++ "^*"
-		showTex (Transposed x) = (showTex x) ++ "^T"
-		showTex (HermiteConjugated x) = (showTex x) ++ "^\\dagger"
-		showTex (OperatorValue Function {symbol, indices, variables})
-			= showTex Function {
-				symbol=(SymbolString ("\\hat{" ++ (showTex symbol) ++ "}")),
-				indices=indices,
-				variables=variables }
-		showTex (ComplexValue x) = showTex x
-		showTex (Constant x) = showTex x
+
+    class OperatorValued a where
+        dagger :: a -> a
+
+    instance (OperatorValued a) => OperatorValued (Maybe a) where
+        dagger Nothing = Nothing
+        dagger (Just x) = Just (dagger x)
+    instance (OperatorValued a) => OperatorValued (Sum a) where
+        dagger (Sum ts) = Sum (map dagger ts)
+        dagger (Constant c) = Constant (conjugate c)
+    instance OperatorValued OpTerm where
+        dagger (OpTerm c fs opf) = OpTerm (conjugate c) (map conjugate fs) (dagger opf)
+    instance OperatorValued Function where
+        dagger = conjugate
+    instance OperatorValued OpFactor where
+        dagger (NormalProduct ops) = NormalProduct (reverse (map dagger ops))
+        dagger (SymmetricProduct ops) = SymmetricProduct (map dagger ops)
+    instance OperatorValued Operator where
+        dagger (Op e p) = DaggerOp e p
+        dagger (DaggerOp e p) = Op e p
+
+
+    class Term a where
+        termCoeff :: a -> ComplexRational
+        termAtom :: a -> a
+        makeTerm :: ComplexRational -> a -> a
+
+    instance Term OpTerm where
+        termCoeff (OpTerm c fs opf) = c
+        termAtom (OpTerm c fs opf) = OpTerm 1 fs opf
+        makeTerm c (OpTerm _ fs opf) = OpTerm c fs opf
+    instance Term FuncTerm where
+        termCoeff (FuncTerm c fs) = c
+        termAtom (FuncTerm c fs) = FuncTerm 1 fs
+        makeTerm c (FuncTerm _ fs) = FuncTerm c fs
+
+
+    groupTerms :: (Term a) => [a] -> [a]
+    groupTerms ts = undefined
+
+    termNegate :: (Term a) => a -> a
+    termNegate x = makeTerm (negate c) atom where
+        c = termCoeff x
+        atom = termAtom x
+
+    termMul :: (Term a) => ComplexRational -> a-> a
+    termMul t x = makeTerm (c * t) atom where
+        c = termCoeff x
+        atom = termAtom x
+
+    instance (Num a, Term a) => Num (Sum a) where
+        negate (Sum ts) = Sum (map termNegate ts)
+        negate (Constant c) = Constant (negate c)
+        (Sum ts1) + (Sum ts2) = Sum (groupTerms (ts1 ++ ts2))
+        (Constant c) * (Sum ts) = Sum (map (termMul c) ts)
+        (Sum ts) * (Constant c) = Sum (map (termMul c) ts)
+        (Sum ts1) * (Sum ts2) = Sum (groupTerms combinations) where
+            combinations = [x * y | x <- ts1, y <- ts2]
+        fromInteger x = Constant (fromInteger x :: ComplexRational)
+        abs = undefined
+        signum = undefined
+
+    instance (Num a, Term a) => Fractional (Sum a) where
+        x / (Constant y) = Constant (1 / y) * x
+        fromRational x = Constant (fromRational x :: ComplexRational)
+
+
+{-
+    instance Texable Symbol where
+        showTex (SymbolString s) = s
+
+    instance Texable Index where
+        showTex (IndexSymbol s) = showTex s
+        showTex (IndexInt s) = show s
+
+    instance Texable Variable where
+        showTex (VariableSymbol s) = showTex s
+
+    instance Texable Function where
+        showTex (Function {symbol, indices, variables}) =
+            (showTex symbol) ++ indices_str ++ variables_str where
+                indices_str = if indices == []
+                    then ""
+                    else "_{" ++ intercalate " " (map showTex indices) ++ "}"
+                variables_str = if variables == []
+                    then ""
+                    else "(" ++ intercalate " " (map showTex variables) ++ ")"
+
+    showTexWithSign :: Expr -> String
+    showTexWithSign (Constant (x :+ y))
+        | x > 0 || (x == 0 && y > 0) || (x /= 0 && y /= 0) = "+" ++ (showTex (x :+ y))
+        | otherwise = showTex (x :+ y)
+    showTexWithSign (Product c xs) = coeff ++ showTex (Product 1 xs) where
+        coeff = if c == 1 then "" else (showTexWithSign (Constant c)) ++ " "
+    showTexWithSign x = "+" ++ showTex x
+
+    instance Texable Expr where
+        showTex (Sum (x:xs)) = "(" ++ (showTex x) ++ " " ++ (intercalate " " (map showTexWithSign xs)) ++ ")"
+        showTex (Product c xs) = coeff ++ (intercalate " " (map showTex xs)) where
+            coeff = if c == 1 then "" else (showTex c) ++ " "
+        showTex (Conjugated x) = (showTex x) ++ "^*"
+        showTex (Transposed x) = (showTex x) ++ "^T"
+        showTex (Dagger x) = (showTex x) ++ "^\\dagger"
+        showTex (OperatorValue Function {symbol, indices, variables})
+            = showTex Function {
+                symbol=(SymbolString ("\\hat{" ++ (showTex symbol) ++ "}")),
+                indices=indices,
+                variables=variables }
+        showTex (ComplexValue x) = showTex x
+        showTex (Constant x) = showTex x
+-}
