@@ -34,13 +34,13 @@ module Wigner.Expression where
                deriving (Show, Eq)
 
     type OpExpr = Sum OpTerm
-    data OpTerm = OpTerm ComplexRational [Function] (Maybe OpFactor)
+    data OpTerm = OpTerm ComplexRational [Function] (Maybe OpFactor) deriving (Show, Eq)
     data OpFactor = NormalProduct [Operator]
                   | SymmetricProduct [Operator]
                   deriving (Show, Eq)
 
     type FuncExpr = Sum FuncTerm
-    data FuncTerm = FuncTerm ComplexRational [FuncFactor]
+    data FuncTerm = FuncTerm ComplexRational [FuncFactor] deriving (Show, Eq)
     data FuncFactor = OpExpectation OpFactor
                     | FuncExpectation [Function]
                     | FuncProduct [Function]
@@ -127,6 +127,23 @@ module Wigner.Expression where
         dagger (DaggerOp e p) = Op e p
 
 
+    class Multipliable a where
+        mul :: a -> a -> a
+
+    instance (Multipliable a) => Multipliable (Maybe a) where
+        Nothing `mul` Nothing = Nothing
+        (Just x) `mul` Nothing = Just x
+        Nothing `mul` (Just y) = Just y
+        (Just x) `mul` (Just y) = Just (x `mul` y)
+
+    instance Multipliable OpTerm where
+        (OpTerm c1 f1 opf1) `mul` (OpTerm c2 f2 opf2) = OpTerm (c1 * c2) (sort $ f1 ++ f2) (opf1 `mul` opf2)
+
+    instance Multipliable OpFactor where
+        (NormalProduct ops1) `mul` (NormalProduct ops2) = NormalProduct (ops1 ++ ops2)
+        (SymmetricProduct ops1) `mul` (SymmetricProduct ops2) = SymmetricProduct (sort $ ops1 ++ ops2)
+        x `mul` y = error "Cannot multiply normal and symmetric product"
+
     class Term a where
         termCoeff :: a -> ComplexRational
         termAtom :: a -> a
@@ -143,31 +160,31 @@ module Wigner.Expression where
 
 
     groupTerms :: (Term a) => [a] -> [a]
-    groupTerms ts = undefined
+    groupTerms ts = error "groupTerms is not implemented"
 
     termNegate :: (Term a) => a -> a
     termNegate x = makeTerm (negate c) atom where
         c = termCoeff x
         atom = termAtom x
 
-    termMul :: (Term a) => ComplexRational -> a-> a
-    termMul t x = makeTerm (c * t) atom where
+    termMulConstant :: (Term a) => ComplexRational -> a-> a
+    termMulConstant t x = makeTerm (c * t) atom where
         c = termCoeff x
         atom = termAtom x
 
-    instance (Num a, Term a) => Num (Sum a) where
+    instance (Eq a, Show a, Multipliable a, Term a) => Num (Sum a) where
         negate (Sum ts) = Sum (map termNegate ts)
         negate (Constant c) = Constant (negate c)
         (Sum ts1) + (Sum ts2) = Sum (groupTerms (ts1 ++ ts2))
-        (Constant c) * (Sum ts) = Sum (map (termMul c) ts)
-        (Sum ts) * (Constant c) = Sum (map (termMul c) ts)
+        (Constant c) * (Sum ts) = Sum (map (termMulConstant c) ts)
+        (Sum ts) * (Constant c) = Sum (map (termMulConstant c) ts)
         (Sum ts1) * (Sum ts2) = Sum (groupTerms combinations) where
-            combinations = [x * y | x <- ts1, y <- ts2]
+            combinations = [x `mul` y | x <- ts1, y <- ts2]
         fromInteger x = Constant (fromInteger x :: ComplexRational)
         abs = undefined
         signum = undefined
 
-    instance (Num a, Term a) => Fractional (Sum a) where
+    instance (Eq a, Show a, Multipliable a, Term a) => Fractional (Sum a) where
         x / (Constant y) = Constant (1 / y) * x
         fromRational x = Constant (fromRational x :: ComplexRational)
 
