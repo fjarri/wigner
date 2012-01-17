@@ -18,6 +18,7 @@
 
 module Wigner.Expression where
 
+    import Data.List
     import Wigner.Complex
     import Wigner.Texable
     import Data.List (sort, intercalate)
@@ -37,7 +38,7 @@ module Wigner.Expression where
     data OpTerm = OpTerm ComplexRational [Function] (Maybe OpFactor) deriving (Show, Eq)
     data OpFactor = NormalProduct [Operator]
                   | SymmetricProduct [Operator]
-                  deriving (Show, Eq)
+                  deriving (Ord, Show, Eq)
 
     type FuncExpr = Sum FuncTerm
     data FuncTerm = FuncTerm ComplexRational [FuncFactor] deriving (Show, Eq)
@@ -45,7 +46,7 @@ module Wigner.Expression where
                     | FuncExpectation [Function]
                     | FuncProduct [Function]
                     | DiffProduct [Differential]
-                    deriving (Show, Eq)
+                    deriving (Ord, Show, Eq)
 
     data Function = Func Element Integer
                   | ConjFunc Element Integer
@@ -75,6 +76,9 @@ module Wigner.Expression where
         compare (Diff e1 p1) (ConjDiff e2 p2) = compare e1 e2
         compare (ConjDiff e1 p1) (Diff e2 p2) = compare e1 e2
         compare (ConjDiff e1 p1) (ConjDiff e2 p2) = compare e1 e2
+    instance Ord OpTerm where
+        compare (OpTerm c1 fs1 opf1) (OpTerm c2 fs2 opf2) =
+            compare (opf1, fs1) (opf2, fs2)
 
 
     class OpExpression a where
@@ -158,11 +162,18 @@ module Wigner.Expression where
         termAtom (FuncTerm c fs) = FuncTerm 1 fs
         makeTerm c (FuncTerm _ fs) = FuncTerm c fs
 
+    groupTerms' :: (Ord a, Term a) => [a] -> [[a]]
+    groupTerms' = groupBy eqTest . sortBy cmpTest where
+        cmpTest x y = compare (termAtom x) (termAtom y)
+        eqTest x y = (cmpTest x y) == EQ
 
-    groupTerms :: (Term a) => [a] -> [a]
-    groupTerms ts = error "groupTerms is not implemented"
+    joinTerms :: Term a => [a] -> a
+    joinTerms = foldr1 (\x y -> makeTerm (termCoeff x + termCoeff y) (termAtom x))
 
-    termNegate :: (Term a) => a -> a
+    groupTerms :: (Ord a, Term a) => [a] -> [a]
+    groupTerms x = map joinTerms (groupTerms' x)
+
+    termNegate :: Term a => a -> a
     termNegate x = makeTerm (negate c) atom where
         c = termCoeff x
         atom = termAtom x
@@ -172,7 +183,7 @@ module Wigner.Expression where
         c = termCoeff x
         atom = termAtom x
 
-    instance (Eq a, Show a, Multipliable a, Term a) => Num (Sum a) where
+    instance (Ord a, Eq a, Show a, Multipliable a, Term a) => Num (Sum a) where
         negate (Sum ts) = Sum (map termNegate ts)
         negate (Constant c) = Constant (negate c)
         (Sum ts1) + (Sum ts2) = Sum (groupTerms (ts1 ++ ts2))
@@ -184,7 +195,7 @@ module Wigner.Expression where
         abs = undefined
         signum = undefined
 
-    instance (Eq a, Show a, Multipliable a, Term a) => Fractional (Sum a) where
+    instance (Ord a, Eq a, Show a, Multipliable a, Term a) => Fractional (Sum a) where
         x / (Constant y) = Constant (1 / y) * x
         fromRational x = Constant (fromRational x :: ComplexRational)
 
