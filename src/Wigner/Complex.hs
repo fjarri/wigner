@@ -32,4 +32,4 @@ module Wigner.Complex (Complex((:+)), conjugate, ComplexValued) where
 			where
 				sx = showTex x
 				sy = showTex y
-				sign = if y < 0 then "-" else "+"
+				sign = if y < 0 then "" else "+"
