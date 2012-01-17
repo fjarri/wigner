@@ -63,18 +63,18 @@ module Wigner.Expression where
         compare (Element s1 i1 v1) (Element s2 i2 v2) = compare (s1, v1, i1) (s2, v2, i2)
     instance Ord Function where
         compare (Func e1 p1) (Func e2 p2) = compare e1 e2
-        compare (Func e1 p1) (ConjFunc e2 p2) = compare e1 e2
-        compare (ConjFunc e1 p1) (Func e2 p2) = compare e1 e2
+        compare (Func e1 p1) (ConjFunc e2 p2) = LT
+        compare (ConjFunc e1 p1) (Func e2 p2) = GT
         compare (ConjFunc e1 p1) (ConjFunc e2 p2) = compare e1 e2
     instance Ord Operator where
         compare (Op e1 p1) (Op e2 p2) = compare e1 e2
-        compare (Op e1 p1) (DaggerOp e2 p2) = compare e1 e2
-        compare (DaggerOp e1 p1) (Op e2 p2) = compare e1 e2
+        compare (Op e1 p1) (DaggerOp e2 p2) = LT
+        compare (DaggerOp e1 p1) (Op e2 p2) = GT
         compare (DaggerOp e1 p1) (DaggerOp e2 p2) = compare e1 e2
     instance Ord Differential where
         compare (Diff e1 p1) (Diff e2 p2) = compare e1 e2
-        compare (Diff e1 p1) (ConjDiff e2 p2) = compare e1 e2
-        compare (ConjDiff e1 p1) (Diff e2 p2) = compare e1 e2
+        compare (Diff e1 p1) (ConjDiff e2 p2) = LT
+        compare (ConjDiff e1 p1) (Diff e2 p2) = GT
         compare (ConjDiff e1 p1) (ConjDiff e2 p2) = compare e1 e2
     instance Ord OpTerm where
         compare (OpTerm c1 fs1 opf1) (OpTerm c2 fs2 opf2) =
