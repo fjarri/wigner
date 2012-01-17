@@ -20,7 +20,7 @@ module Wigner.Complex (Complex((:+)), conjugate, ComplexValued) where
 		fromInteger x = (fromInteger x) :+ (fromInteger 0)
 
 	instance (Fractional a) => Fractional (Complex a) where
-		(x1 :+ y1) / (x2 :+ y2) = ((x1 * x2 + y2 * y2) / m) :+ ((x1 * y2 - y1 * x2) / m) where
+		(x1 :+ y1) / (x2 :+ y2) = ((x1 * x2 + y1 * y2) / m) :+ ((x1 * y2 - y1 * x2) / m) where
 			m = x2 * x2 + y2 * y2
 		fromRational x = (fromRational x) :+ (fromRational 0)
 
