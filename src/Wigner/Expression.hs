@@ -200,9 +200,9 @@ module Wigner.Expression where
         fromRational x = Constant (fromRational x :: ComplexRational)
 
 
-{-
+
     instance Texable Symbol where
-        showTex (SymbolString s) = s
+        showTex (Symbol s) = s
 
     instance Texable Index where
         showTex (IndexSymbol s) = showTex s
@@ -211,36 +211,71 @@ module Wigner.Expression where
     instance Texable Variable where
         showTex (VariableSymbol s) = showTex s
 
+    showTexIV :: [Index] -> [Variable] -> String
+    showTexIV is vs = indices_str ++ variables_str where
+        indices_str = case length is of
+            0 -> ""
+            1 -> "_" ++ showTex is
+            n -> "_{" ++ intercalate " " (map showTex is) ++ "}"
+        variables_str = if null vs
+            then ""
+            else "(" ++ intercalate " " (map showTex vs) ++ ")"
+
+    instance Texable Element where
+        showTex (Element s is vs) = showTex s ++ showTexIV is vs
+
+    addPower :: Integer -> String -> Bool -> String
+    addPower 1 s need_parentheses = s
+    addPower i s True = addPower i ("(" ++ s ++ ")") False
+    addPower i s False = s ++ "^" ++ show i
+
+    makeDiff diff_s s = "\\frac{" ++  diff_s ++ "}{" ++ diff_s ++ " " ++ s ++ "}"
+    diffSymbol (Element _ _ vs) = if null vs then "\\partial" else "\\delta"
+
+    instance Texable a => Texable [a] where
+        showTex x = intercalate " " (map showTex x)
+
     instance Texable Function where
-        showTex (Function {symbol, indices, variables}) =
-            (showTex symbol) ++ indices_str ++ variables_str where
-                indices_str = if indices == []
-                    then ""
-                    else "_{" ++ intercalate " " (map showTex indices) ++ "}"
-                variables_str = if variables == []
-                    then ""
-                    else "(" ++ intercalate " " (map showTex variables) ++ ")"
+        showTex (Func e i) = addPower i (showTex e) False
+        showTex (ConjFunc e i) = addPower i (showTex (Func e 1) ++ "^*") True
 
-    showTexWithSign :: Expr -> String
-    showTexWithSign (Constant (x :+ y))
-        | x > 0 || (x == 0 && y > 0) || (x /= 0 && y /= 0) = "+" ++ (showTex (x :+ y))
-        | otherwise = showTex (x :+ y)
-    showTexWithSign (Product c xs) = coeff ++ showTex (Product 1 xs) where
-        coeff = if c == 1 then "" else (showTexWithSign (Constant c)) ++ " "
-    showTexWithSign x = "+" ++ showTex x
+    instance Texable Operator where
+        showTex (Op (Element s is vs) i) = addPower i ("\\hat{" ++ showTex s ++ "}" ++ showTexIV is vs) False
+        showTex (DaggerOp e i) = addPower i (showTex (Op e 1) ++ "^\\dagger") True
 
-    instance Texable Expr where
-        showTex (Sum (x:xs)) = "(" ++ (showTex x) ++ " " ++ (intercalate " " (map showTexWithSign xs)) ++ ")"
-        showTex (Product c xs) = coeff ++ (intercalate " " (map showTex xs)) where
-            coeff = if c == 1 then "" else (showTex c) ++ " "
-        showTex (Conjugated x) = (showTex x) ++ "^*"
-        showTex (Transposed x) = (showTex x) ++ "^T"
-        showTex (Dagger x) = (showTex x) ++ "^\\dagger"
-        showTex (OperatorValue Function {symbol, indices, variables})
-            = showTex Function {
-                symbol=(SymbolString ("\\hat{" ++ (showTex symbol) ++ "}")),
-                indices=indices,
-                variables=variables }
-        showTex (ComplexValue x) = showTex x
-        showTex (Constant x) = showTex x
--}
+    instance Texable Differential where
+        showTex (Diff e i) = makeDiff (diffSymbol e) (showTex (Func e i))
+        showTex (ConjDiff e i) = makeDiff (diffSymbol e) (showTex (ConjFunc e i))
+
+    instance Texable OpFactor where
+        showTex (NormalProduct ops) = intercalate " " (map showTex ops)
+        showTex (SymmetricProduct ops) = "\\symprod{" ++ showTex (NormalProduct ops) ++ "}"
+
+    instance Texable FuncFactor where
+        showTex (OpExpectation opf) = "\\langle" ++ showTex opf ++ "\\rangle"
+        showTex (FuncExpectation fs) = "\\pathavg{" ++ showTex fs ++ "}"
+        showTex (FuncProduct fs) = showTex fs
+        showTex (DiffProduct ds) = showTex ds
+
+    instance Texable OpTerm where
+        showTex (OpTerm c fs Nothing) = showCoeff c False ++ " " ++ showTex fs
+        showTex (OpTerm c fs (Just opf)) = showTex (OpTerm c fs Nothing) ++ " " ++ showTex opf
+
+    instance Texable FuncTerm where
+        showTex (FuncTerm c ffs) = showCoeff c False ++ " " ++ showTex ffs
+
+    instance (Texable a, Term a) => Texable (Sum a) where
+        showTex (Constant c) = showTex c
+        showTex (Sum []) = "0"
+        showTex (Sum (t:[])) = showTex t
+        showTex (Sum (t:ts)) = intercalate " " (showTex t : map showTexWithSign ts)
+
+    showCoeff (x :+ y) explicit_plus
+        | x == 1 && y == 0 = plus_str
+        | x == -1 && y == 0 = "-"
+        | x > 0 || (x == 0 && y > 0) = plus_str ++ (showTex (x :+ y))
+        | otherwise = showTex (x :+ y) where
+            plus_str = if explicit_plus then "+" else ""
+
+    showTexWithSign :: (Texable a, Term a) => a -> String
+    showTexWithSign t = showCoeff (termCoeff t) True ++ " " ++ showTex (termAtom t)
