@@ -108,8 +108,8 @@ module Wigner.Expression where
     instance ComplexValued FuncTerm where
         conjugate (FuncTerm fs) = FuncTerm (map conjugate fs)
     instance ComplexValued FuncFactor where
-        -- technically we can, just do not need to, and I do not want to bloat the set of types
-        conjugate (OpExpectation op) = error "Cannot conjugate an expectation of operator product"
+        conjugate (OpExpectation op) =
+            error "Not implemented: conjugation of operator product expectation"
         conjugate (FuncExpectation fs) = FuncExpectation (M.mapKeys conjugate fs)
         conjugate (FuncProduct fs) = FuncProduct (M.mapKeys conjugate fs)
         conjugate (DiffProduct ds) = DiffProduct (M.mapKeys conjugate ds)
@@ -155,7 +155,7 @@ module Wigner.Expression where
     instance Multipliable OpFactor where
         (NormalProduct ops1) `mul` (NormalProduct ops2) = NormalProduct (ops1 ++ ops2)
         (SymmetricProduct ops1) `mul` (SymmetricProduct ops2) = SymmetricProduct (M.unionWith (+) ops1 ops2)
-        x `mul` y = error "Cannot multiply normal and symmetric product"
+        x `mul` y = error "Not implemented: multiplication of normal and symmetric product"
 
     instance (Identity a, Ord a, Eq a, Show a, Multipliable a) => Num (Sum a) where
         negate (Sum ts) = Sum (M.map negate ts)
@@ -170,8 +170,8 @@ module Wigner.Expression where
     instance (Identity a, Ord a, Eq a, Show a, Multipliable a) => Fractional (Sum a) where
         x / (Sum ts)
             | M.null ts  = error "Division by zero"
-            | M.size ts > 1 = error "Cannot divide by non-scalar expression"
-            | fst (head pairs) /= identity = error "Cannot divide by non-scalar expression"
+            | M.size ts > 1 = error "Not implemented: division by sum"
+            | fst (head pairs) /= identity = error "Not implemented: division by non-scalar expression"
             | otherwise = (Sum $ M.singleton identity (1 / (snd (head pairs)))) * x where
                 pairs = M.assocs ts
         fromRational x = Sum $ M.singleton identity (fromRational x :: ComplexRational)
