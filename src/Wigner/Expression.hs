@@ -7,13 +7,14 @@ module Wigner.Expression where
     import qualified Data.Map as M
 
     type ComplexRational = Complex Rational
+    data Coefficient = Coefficient (Complex Rational) deriving (Show, Eq)
 
     data Symbol = Symbol String deriving (Show, Eq, Ord)
     data Index = IndexSymbol Symbol | IndexInteger Integer deriving (Show, Eq, Ord)
     data Variable = VariableSymbol Symbol deriving (Show, Eq, Ord)
     data Element = Element Symbol [Index] [Variable] deriving (Show, Eq)
 
-    data Sum a = Sum (M.Map a ComplexRational) deriving (Show, Eq)
+    data Sum a = Sum (M.Map a Coefficient) deriving (Show, Eq)
 
     type OpExpr = Sum OpTerm
     data OpTerm = OpTerm (M.Map Function Integer) (Maybe OpFactor) deriving (Show, Eq)
@@ -86,6 +87,8 @@ module Wigner.Expression where
         makeOpExpr x = Sum $ M.singleton (OpTerm M.empty (Just (NormalProduct [(x, 1)]))) 1
 
 
+    instance ComplexValued Coefficient where
+        conjugate (Coefficient x) = Coefficient (conjugate x)
     instance (Ord a, ComplexValued a) => ComplexValued (Sum a) where
         conjugate (Sum ts) = Sum (M.map conjugate (M.mapKeys conjugate ts))
     instance ComplexValued FuncTerm where
@@ -140,6 +143,19 @@ module Wigner.Expression where
         (SymmetricProduct ops1) `mul` (SymmetricProduct ops2) = SymmetricProduct (M.unionWith (+) ops1 ops2)
         x `mul` y = error "Not implemented: multiplication of normal and symmetric product"
 
+
+    instance Num Coefficient where
+        negate (Coefficient x) = Coefficient (negate x)
+        (Coefficient x) + (Coefficient y) = Coefficient (x + y)
+        (Coefficient x) * (Coefficient y) = Coefficient (x * y)
+        fromInteger x = Coefficient (fromInteger x :: ComplexRational)
+        abs = undefined
+        signum = undefined
+
+    instance Fractional Coefficient where
+        (Coefficient x) / (Coefficient y) = Coefficient (x / y)
+        fromRational x = Coefficient (fromRational x :: ComplexRational)
+
     instance (Identity a, Ord a, Eq a, Show a, Multipliable a) => Num (Sum a) where
         negate (Sum ts) = Sum (M.map negate ts)
         (Sum ts1) + (Sum ts2) = Sum $ M.filter (/= 0) (M.unionWith (+) ts1 ts2)
@@ -157,7 +173,7 @@ module Wigner.Expression where
             | fst (head pairs) /= identity = error "Not implemented: division by non-scalar expression"
             | otherwise = (Sum $ M.singleton identity (1 / snd (head pairs))) * x where
                 pairs = M.assocs ts
-        fromRational x = Sum $ M.singleton identity (fromRational x :: ComplexRational)
+        fromRational x = Sum $ M.singleton identity (fromRational x :: Coefficient)
 
 
     class Texable a => Superscriptable a where
@@ -215,6 +231,9 @@ module Wigner.Expression where
     instance (Superscriptable a, Texable a) => Texable (M.Map a Integer) where
         showTex x = showTex (M.assocs x)
 
+    instance Texable Coefficient where
+        showTex (Coefficient x) = showTex x
+
     instance Texable Function where
         showTex (Func e) = showTex e
         showTex (ConjFunc e) = showTex (Func e) ++ "^*"
@@ -255,7 +274,7 @@ module Wigner.Expression where
                 showTexList (tc:tcs) = showTexList [tc] ++ " " ++
                     unwords (map (showTexTuple True) tcs)
 
-    showCoeff (x :+ y) explicit_plus
+    showCoeff (Coefficient (x :+ y)) explicit_plus
         | x == 1 && y == 0 = plus_str
         | x == -1 && y == 0 = "-"
         | x > 0 || (x == 0 && y > 0) = plus_str ++ showTex (x :+ y)
