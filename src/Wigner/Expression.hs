@@ -20,7 +20,6 @@ module Wigner.Expression where
 
     import Wigner.Complex
     import Wigner.Texable
-    import qualified Data.List as L
     import qualified Data.Map as M
 
     type ComplexRational = Complex Rational
@@ -172,7 +171,7 @@ module Wigner.Expression where
             | M.null ts  = error "Division by zero"
             | M.size ts > 1 = error "Not implemented: division by sum"
             | fst (head pairs) /= identity = error "Not implemented: division by non-scalar expression"
-            | otherwise = (Sum $ M.singleton identity (1 / (snd (head pairs)))) * x where
+            | otherwise = (Sum $ M.singleton identity (1 / snd (head pairs))) * x where
                 pairs = M.assocs ts
         fromRational x = Sum $ M.singleton identity (fromRational x :: ComplexRational)
 
@@ -206,11 +205,11 @@ module Wigner.Expression where
     showTexIV is vs = indices_str ++ variables_str where
         indices_str = case length is of
             0 -> ""
-            1 -> "_" ++ showTex is
-            n -> "_{" ++ L.intercalate " " (map showTex is) ++ "}"
+            1 -> '_' : showTex is
+            n -> "_{" ++ unwords (map showTex is) ++ "}"
         variables_str = if null vs
             then ""
-            else "(" ++ L.intercalate " " (map showTex vs) ++ ")"
+            else "(" ++ unwords (map showTex vs) ++ ")"
 
     instance Texable Element where
         showTex (Element s is vs) = showTex s ++ showTexIV is vs
@@ -224,7 +223,7 @@ module Wigner.Expression where
     diffSymbol (Element _ _ vs) = if null vs then "\\partial" else "\\delta"
 
     instance Texable a => Texable [a] where
-        showTex x = L.intercalate " " (map showTex x)
+        showTex x = unwords (map showTex x)
 
     instance (Superscriptable a, Texable a) => Texable (a, Integer) where
         showTex (x, p) = showTexWithExponent x p
@@ -270,11 +269,11 @@ module Wigner.Expression where
                     | otherwise = showCoeff c explicit_plus ++ " " ++ showTex t
                 showTexList (tc:[]) = showTexTuple False tc
                 showTexList (tc:tcs) = showTexList [tc] ++ " " ++
-                    L.intercalate " " (map (showTexTuple True) tcs)
+                    unwords (map (showTexTuple True) tcs)
 
     showCoeff (x :+ y) explicit_plus
         | x == 1 && y == 0 = plus_str
         | x == -1 && y == 0 = "-"
-        | x > 0 || (x == 0 && y > 0) = plus_str ++ (showTex (x :+ y))
+        | x > 0 || (x == 0 && y > 0) = plus_str ++ showTex (x :+ y)
         | otherwise = showTex (x :+ y) where
             plus_str = if explicit_plus then "+" else ""
