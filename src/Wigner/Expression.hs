@@ -9,7 +9,7 @@ module Wigner.Expression where
     type ComplexRational = Complex Rational
 
     data Symbol = Symbol String deriving (Show, Eq, Ord)
-    data Index = IndexSymbol Symbol | IndexInt Int deriving (Show, Eq, Ord)
+    data Index = IndexSymbol Symbol | IndexInteger Integer deriving (Show, Eq, Ord)
     data Variable = VariableSymbol Symbol deriving (Show, Eq, Ord)
     data Element = Element Symbol [Index] [Variable] deriving (Show, Eq)
 
@@ -146,7 +146,7 @@ module Wigner.Expression where
         (Sum ts1) * (Sum ts2) = Sum $ M.filter (/= 0) (M.fromListWithKey combine products) where
             combine _ x y = x + y
             products = [(t1 `mul` t2, c1 * c2) | (t1, c1) <- M.assocs ts1, (t2, c2) <- M.assocs ts2]
-        fromInteger x = Sum $ M.singleton identity (fromInteger x :: ComplexRational)
+        fromInteger x = Sum $ M.singleton identity (fromInteger x :: Coefficient)
         abs = undefined
         signum = undefined
 
@@ -180,7 +180,7 @@ module Wigner.Expression where
 
     instance Texable Index where
         showTex (IndexSymbol s) = showTex s
-        showTex (IndexInt s) = show s
+        showTex (IndexInteger s) = show s
 
     instance Texable Variable where
         showTex (VariableSymbol s) = showTex s
