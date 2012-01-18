@@ -1,7 +1,6 @@
 import qualified Wigner.Symbols as S
 import qualified Wigner.DefineOpExpr as DO
 import qualified Wigner.DefineFuncExpr as DF
-import Wigner.Texable
 
 import Data.Ratio
 
@@ -15,6 +14,11 @@ b1 = DO.operatorIx S.b [S.ix_1]
 b2 = DO.operatorIx S.b [S.ix_2]
 alpha = DO.constant S.alpha
 beta = DO.constant S.beta
+
+f_alpha = DF.constant S.alpha
+f_beta = DF.constant S.beta
+dalpha = DF.differential S.alpha
+
 
 test_group_terms = (expr1 + expr2) @?= result where
     expr1 = alpha * a1 * (2 - DO.i) + a2 * 3
@@ -36,12 +40,17 @@ test_operator_exponentiation = expr1 * expr2 @?= result where
     expr2 = 3 * a2 * a2 * a1
     result = 6 * a1^2 * a2^3 * a1
 
+test_combine_differentials = expr1 * expr2 @?= result where
+    expr1 = f_alpha * f_beta * dalpha
+    expr2 = dalpha ^ 2 * f_beta
+    result = f_alpha * f_beta * (dalpha ^ 3) * f_beta
 
 tg_addition = testGroup "Addition" [
         testCase "group_terms" test_group_terms,
         testCase "remove_zero_terms" test_remove_zero_terms,
         testCase "zero_result" test_zero_result,
-        testCase "operator_exponentiation" test_operator_exponentiation
+        testCase "operator_exponentiation" test_operator_exponentiation,
+        testCase "combine_differentials" test_combine_differentials
     ]
 tests = [tg_addition]
 
