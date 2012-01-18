@@ -125,15 +125,28 @@ module Wigner.Expression where
             OpTerm (M.unionWith (+) f1 f2) (opf1 `mul` opf2)
 
     instance Multipliable OpFactor where
-        (NormalProduct ops1) `mul` (NormalProduct ops2)
-            | null ops1 || null ops2 || fst last1 /= fst head2 = NormalProduct (ops1 ++ ops2)
-            | otherwise = NormalProduct (init1 ++ [intersection] ++ tail2) where
-                init1 = init ops1
-                tail2 = tail ops2
-                last1 = last ops1
-                head2 = head ops2
-                intersection = (fst last1, snd last1 + snd head2)
+        (NormalProduct ops1) `mul` (NormalProduct ops2) = NormalProduct $ glueLists connectTuples ops1 ops2
         x `mul` y = error "Not implemented: multiplication with symmetric products"
+
+    instance Multipliable FuncTerm where
+        (FuncTerm ffs1) `mul` (FuncTerm ffs2) = FuncTerm $ glueLists connectFactors ffs1 ffs2
+
+
+    glueLists :: (a -> a -> [a]) -> [a] -> [a] -> [a]
+    glueLists connect l1 l2
+        | null l1 || null l2 = l1 ++ l2
+        | otherwise = init l1 ++ intersection ++ tail l2 where
+            intersection = connect (last l1) (head l2)
+
+    connectFactors :: FuncFactor -> FuncFactor -> [FuncFactor]
+    connectFactors (FuncProduct x) (FuncProduct y) = [FuncProduct (M.unionWith (+) x y)]
+    connectFactors (DiffProduct x) (DiffProduct y) = [DiffProduct (M.unionWith (+) x y)]
+    connectFactors x y = [x, y]
+
+    connectTuples :: (Operator, Integer) -> (Operator, Integer) -> [(Operator, Integer)]
+    connectTuples (x1, y1) (x2, y2)
+        | x1 == x2 = [(x1, y1 + y2)]
+        | otherwise = [(x1, y1), (x2, y2)]
 
 
     instance Num Coefficient where
