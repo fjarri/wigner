@@ -1,21 +1,5 @@
 {-# LANGUAGE TypeSynonymInstances, FlexibleInstances #-}
 
-{-
-1) Construct operators:
-    Sum [F], [NO] : (*), (+) -> Sum [F], [NO]
-2) Mark expectations
-    Sum [F], [NO] : expectation, deltaSquared, variance ->
-        Sum [F, Expectation] where Expectation = Ex NO | Ex SO | Ex Product
-3) Normal order to symmetric order
-    [F], [NO] -> Sum [F], [SO]
-4) Evaluate expectations
-    [F], [NO] -> Sum [F], [SO]
-    [SO] -> Sum [Exp SO] -> Sum [Exp Product]
-5) Wigner transformation
-    [NO] -> Sum [[F], [D], ...]
-    Sum [[F], [D], ...] -> Sum [D], [F]
--}
-
 module Wigner.Expression where
 
     import Wigner.Complex
