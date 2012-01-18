@@ -31,11 +31,17 @@ test_zero_result = (expr1 + expr2) @?= 0 where
     expr1 = 2 * a1 - 2 * b1
     expr2 = 2 * b1 - 2 * a1
 
+test_operator_exponentiation = expr1 * expr2 @?= result where
+    expr1 = 2 * a1 * a1 * a2
+    expr2 = 3 * a2 * a2 * a1
+    result = 6 * a1^2 * a2^3 * a1
+
 
 tg_addition = testGroup "Addition" [
         testCase "group_terms" test_group_terms,
         testCase "remove_zero_terms" test_remove_zero_terms,
-        testCase "zero_result" test_zero_result
+        testCase "zero_result" test_zero_result,
+        testCase "operator_exponentiation" test_operator_exponentiation
     ]
 tests = [tg_addition]
 
