@@ -148,6 +148,7 @@ module Wigner.Expression where
         (Sum ts1) * (Sum ts2) = Sum $ M.filter (/= 0) (M.fromListWithKey combine products) where
             combine _ x y = x + y
             products = [(t1 `mul` t2, c1 * c2) | (t1, c1) <- M.assocs ts1, (t2, c2) <- M.assocs ts2]
+        fromInteger 0 = Sum $ M.empty
         fromInteger x = Sum $ M.singleton identity (fromInteger x :: Coefficient)
         abs = undefined
         signum = undefined
@@ -159,7 +160,9 @@ module Wigner.Expression where
             | fst (head pairs) /= identity = error "Not implemented: division by non-scalar expression"
             | otherwise = (Sum $ M.singleton identity (1 / snd (head pairs))) * x where
                 pairs = M.assocs ts
-        fromRational x = Sum $ M.singleton identity (fromRational x :: Coefficient)
+        fromRational x
+            | x == 0 = Sum $ M.empty
+            | otherwise = Sum $ M.singleton identity (fromRational x :: Coefficient)
 
 
     class Texable a => Superscriptable a where
