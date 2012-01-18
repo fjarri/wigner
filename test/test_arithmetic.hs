@@ -1,17 +1,17 @@
 import qualified Wigner.Symbols as S
+import qualified Wigner.DefineOpExpr as DO
+import qualified Wigner.DefineFuncExpr as DF
 import Wigner.Complex
-import Wigner.Expression
-import Wigner.Operations
 import Wigner.Texable
 
 import Test.Framework (defaultMain, testGroup)
 import Test.Framework.Providers.HUnit
 import Test.HUnit
 
-a1 = makeOpExpr $ Op (Element S.a [S.ix_1] [])
-a2 = makeOpExpr $ Op (Element S.a [S.ix_2] [])
-b1 = makeOpExpr $ Op (Element S.b [S.ix_1] [])
-b2 = makeOpExpr $ Op (Element S.b [S.ix_2] [])
+a1 = DO.operatorIx S.a [S.ix_1]
+a2 = DO.operatorIx S.a [S.ix_2]
+b1 = DO.operatorIx S.b [S.ix_1]
+b2 = DO.operatorIx S.b [S.ix_2]
 
 test_group_terms = (expr1 + expr2) @?= result where
     expr1 = a1 * 2 + a2 * 3

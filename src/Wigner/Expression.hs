@@ -73,20 +73,6 @@ module Wigner.Expression where
     instance Identity FuncTerm where identity = FuncTerm []
 
 
-    class OpExpression a where
-        makeOpExpr :: a -> OpExpr
-
-    instance OpExpression OpExpr where makeOpExpr = id
-    instance OpExpression ComplexRational where
-        makeOpExpr x = Sum $ M.singleton (identity :: OpTerm) x
-    instance OpExpression Integer where
-        makeOpExpr x = makeOpExpr ((fromInteger x :: Rational) :+ 0)
-    instance OpExpression Function where
-        makeOpExpr x = Sum $ M.singleton (OpTerm (M.singleton x 1) Nothing) 1
-    instance OpExpression Operator where
-        makeOpExpr x = Sum $ M.singleton (OpTerm M.empty (Just (NormalProduct [(x, 1)]))) 1
-
-
     instance ComplexValued Coefficient where
         conjugate (Coefficient x) = Coefficient (conjugate x)
     instance (Ord a, ComplexValued a) => ComplexValued (Sum a) where
