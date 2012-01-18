@@ -125,9 +125,15 @@ module Wigner.Expression where
             OpTerm (M.unionWith (+) f1 f2) (opf1 `mul` opf2)
 
     instance Multipliable OpFactor where
-        (NormalProduct ops1) `mul` (NormalProduct ops2) = NormalProduct (ops1 ++ ops2)
-        (SymmetricProduct ops1) `mul` (SymmetricProduct ops2) = SymmetricProduct (M.unionWith (+) ops1 ops2)
-        x `mul` y = error "Not implemented: multiplication of normal and symmetric product"
+        (NormalProduct ops1) `mul` (NormalProduct ops2)
+            | null ops1 || null ops2 || fst last1 /= fst head2 = NormalProduct (ops1 ++ ops2)
+            | otherwise = NormalProduct (init1 ++ [intersection] ++ tail2) where
+                init1 = init ops1
+                tail2 = tail ops2
+                last1 = last ops1
+                head2 = head ops2
+                intersection = (fst last1, snd last1 + snd head2)
+        x `mul` y = error "Not implemented: multiplication with symmetric products"
 
 
     instance Num Coefficient where
