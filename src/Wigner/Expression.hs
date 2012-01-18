@@ -159,8 +159,8 @@ module Wigner.Expression where
 
     instance (Identity a, Ord a, Eq a, Show a, Multipliable a) => Num (Sum a) where
         negate (Sum ts) = Sum (M.map negate ts)
-        (Sum ts1) + (Sum ts2) = Sum (M.unionWith (+) ts1 ts2)
-        (Sum ts1) * (Sum ts2) = Sum (M.fromListWithKey combine products) where
+        (Sum ts1) + (Sum ts2) = Sum $ M.filter (/= 0) (M.unionWith (+) ts1 ts2)
+        (Sum ts1) * (Sum ts2) = Sum $ M.filter (/= 0) (M.fromListWithKey combine products) where
             combine _ x y = x + y
             products = [(t1 `mul` t2, c1 * c2) | (t1, c1) <- M.assocs ts1, (t2, c2) <- M.assocs ts2]
         fromInteger x = Sum $ M.singleton identity (fromInteger x :: ComplexRational)
