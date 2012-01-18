@@ -21,7 +21,6 @@ module Wigner.Expression where
     import Wigner.Complex
     import Wigner.Texable
     import qualified Data.List as L
-    import qualified Data.Set as S
     import qualified Data.Map as M
 
     type ComplexRational = Complex Rational
@@ -31,87 +30,95 @@ module Wigner.Expression where
     data Variable = VariableSymbol Symbol deriving (Show, Eq, Ord)
     data Element = Element Symbol [Index] [Variable] deriving (Show, Eq)
 
-    data Sum a = Sum (M.Map a ComplexRational)
-               | Constant ComplexRational
-               deriving (Show, Eq)
+    data Sum a = Sum (M.Map a ComplexRational) deriving (Show, Eq)
 
     type OpExpr = Sum OpTerm
-    data OpTerm = OpTerm (S.Set Function) (Maybe OpFactor) deriving (Show, Eq)
-    data OpFactor = NormalProduct [Operator]
-                  | SymmetricProduct (S.Set Operator)
+    data OpTerm = OpTerm (M.Map Function Integer) (Maybe OpFactor) deriving (Show, Eq)
+    data OpFactor = NormalProduct [(Operator, Integer)]
+                  | SymmetricProduct (M.Map Operator Integer)
                   deriving (Ord, Show, Eq)
 
     type FuncExpr = Sum FuncTerm
     data FuncTerm = FuncTerm [FuncFactor] deriving (Show, Eq, Ord)
     data FuncFactor = OpExpectation OpFactor
-                    | FuncExpectation (S.Set Function)
-                    | FuncProduct (S.Set Function)
-                    | DiffProduct (S.Set Differential)
+                    | FuncExpectation (M.Map Function Integer)
+                    | FuncProduct (M.Map Function Integer)
+                    | DiffProduct (M.Map Differential Integer)
                     deriving (Show, Eq, Ord)
 
-    data Function = Func Element Integer
-                  | ConjFunc Element Integer
+    data Function = Func Element
+                  | ConjFunc Element
                   deriving (Show, Eq)
-    data Operator = Op Element Integer
-                  | DaggerOp Element Integer
+    data Operator = Op Element
+                  | DaggerOp Element
                   deriving (Show, Eq)
-    data Differential = Diff Element Integer
-                      | ConjDiff Element Integer
+    data Differential = Diff Element
+                      | ConjDiff Element
                       deriving (Show, Eq)
 
+    compareWithFallback :: Ord a => Ordering -> a -> a -> Ordering
+    compareWithFallback fb x y = if res == EQ then fb else res where
+        res = compare x y
 
     instance Ord Element where
         compare (Element s1 i1 v1) (Element s2 i2 v2) = compare (s1, v1, i1) (s2, v2, i2)
     instance Ord Function where
-        compare (Func e1 p1) (Func e2 p2) = compare e1 e2
-        compare (Func e1 p1) (ConjFunc e2 p2) = GT
-        compare (ConjFunc e1 p1) (Func e2 p2) = LT
-        compare (ConjFunc e1 p1) (ConjFunc e2 p2) = compare e1 e2
+        compare (Func e1) (Func e2) = compare e1 e2
+        compare (Func e1) (ConjFunc e2) = compareWithFallback GT e1 e2
+        compare (ConjFunc e1) (Func e2) = compareWithFallback LT e1 e2
+        compare (ConjFunc e1) (ConjFunc e2) = compare e1 e2
     instance Ord Operator where
-        compare (Op e1 p1) (Op e2 p2) = compare e1 e2
-        compare (Op e1 p1) (DaggerOp e2 p2) = GT
-        compare (DaggerOp e1 p1) (Op e2 p2) = LT
-        compare (DaggerOp e1 p1) (DaggerOp e2 p2) = compare e1 e2
+        compare (Op e1) (Op e2) = compare e1 e2
+        compare (Op e1) (DaggerOp e2) = compareWithFallback GT e1 e2
+        compare (DaggerOp e1) (Op e2) = compareWithFallback LT e1 e2
+        compare (DaggerOp e1) (DaggerOp e2) = compare e1 e2
     instance Ord Differential where
-        compare (Diff e1 p1) (Diff e2 p2) = compare e1 e2
-        compare (Diff e1 p1) (ConjDiff e2 p2) = GT
-        compare (ConjDiff e1 p1) (Diff e2 p2) = LT
-        compare (ConjDiff e1 p1) (ConjDiff e2 p2) = compare e1 e2
+        compare (Diff e1) (Diff e2) = compare e1 e2
+        compare (Diff e1) (ConjDiff e2) = compareWithFallback GT e1 e2
+        compare (ConjDiff e1) (Diff e2) = compareWithFallback LT e1 e2
+        compare (ConjDiff e1) (ConjDiff e2) = compare e1 e2
     instance Ord OpTerm where
         compare (OpTerm fs1 opf1) (OpTerm fs2 opf2) =
             compare (opf1, fs1) (opf2, fs2)
+
+
+    class Identity a where
+        identity :: a
+
+    instance Identity OpTerm where identity = OpTerm M.empty Nothing
+    instance Identity FuncTerm where identity = FuncTerm []
 
 
     class OpExpression a where
         makeOpExpr :: a -> OpExpr
 
     instance OpExpression OpExpr where makeOpExpr = id
-    instance OpExpression ComplexRational where makeOpExpr x = Constant x
+    instance OpExpression ComplexRational where
+        makeOpExpr x = Sum $ M.singleton (identity :: OpTerm) x
     instance OpExpression Integer where
         makeOpExpr x = makeOpExpr ((fromInteger x :: Rational) :+ 0)
     instance OpExpression Function where
-        makeOpExpr x = Sum $ M.singleton (OpTerm (S.singleton x) Nothing) 1
+        makeOpExpr x = Sum $ M.singleton (OpTerm (M.singleton x 1) Nothing) 1
     instance OpExpression Operator where
-        makeOpExpr x = Sum $ M.singleton (OpTerm S.empty (Just (NormalProduct [x]))) 1
+        makeOpExpr x = Sum $ M.singleton (OpTerm M.empty (Just (NormalProduct [(x, 1)]))) 1
 
 
     instance (Ord a, ComplexValued a) => ComplexValued (Sum a) where
         conjugate (Sum ts) = Sum (M.map conjugate (M.mapKeys conjugate ts))
-        conjugate (Constant c) = Constant (conjugate c)
     instance ComplexValued FuncTerm where
         conjugate (FuncTerm fs) = FuncTerm (map conjugate fs)
     instance ComplexValued FuncFactor where
         -- technically we can, just do not need to, and I do not want to bloat the set of types
         conjugate (OpExpectation op) = error "Cannot conjugate an expectation of operator product"
-        conjugate (FuncExpectation fs) = FuncExpectation (S.map conjugate fs)
-        conjugate (FuncProduct fs) = FuncProduct (S.map conjugate fs)
-        conjugate (DiffProduct ds) = DiffProduct (S.map conjugate ds)
+        conjugate (FuncExpectation fs) = FuncExpectation (M.mapKeys conjugate fs)
+        conjugate (FuncProduct fs) = FuncProduct (M.mapKeys conjugate fs)
+        conjugate (DiffProduct ds) = DiffProduct (M.mapKeys conjugate ds)
     instance ComplexValued Function where
-        conjugate (Func e p) = ConjFunc e p
-        conjugate (ConjFunc e p) = Func e p
+        conjugate (Func e) = ConjFunc e
+        conjugate (ConjFunc e) = Func e
     instance ComplexValued Differential where
-        conjugate (Diff e p) = ConjDiff e p
-        conjugate (ConjDiff e p) = Diff e p
+        conjugate (Diff e) = ConjDiff e
+        conjugate (ConjDiff e) = Diff e
 
 
     class OperatorValued a where
@@ -122,15 +129,14 @@ module Wigner.Expression where
         dagger (Just x) = Just (dagger x)
     instance (Ord a, OperatorValued a) => OperatorValued (Sum a) where
         dagger (Sum ts) = Sum (M.map conjugate (M.mapKeys dagger ts))
-        dagger (Constant c) = Constant (conjugate c)
     instance OperatorValued OpTerm where
-        dagger (OpTerm fs opf) = OpTerm (S.map conjugate fs) (dagger opf)
+        dagger (OpTerm fs opf) = OpTerm (M.mapKeys conjugate fs) (dagger opf)
     instance OperatorValued OpFactor where
-        dagger (NormalProduct ops) = NormalProduct (reverse (map dagger ops))
-        dagger (SymmetricProduct ops) = SymmetricProduct (S.map dagger ops)
+        dagger (NormalProduct ops) = NormalProduct (reverse (map (\(x, y) -> (dagger x, y)) ops))
+        dagger (SymmetricProduct ops) = SymmetricProduct (M.mapKeys dagger ops)
     instance OperatorValued Operator where
-        dagger (Op e p) = DaggerOp e p
-        dagger (DaggerOp e p) = Op e p
+        dagger (Op e) = DaggerOp e
+        dagger (DaggerOp e) = Op e
 
 
     class Multipliable a where
@@ -144,32 +150,46 @@ module Wigner.Expression where
 
     instance Multipliable OpTerm where
         (OpTerm f1 opf1) `mul` (OpTerm f2 opf2) =
-            OpTerm (S.union f1 f2) (opf1 `mul` opf2)
+            OpTerm (M.unionWith (+) f1 f2) (opf1 `mul` opf2)
 
     instance Multipliable OpFactor where
         (NormalProduct ops1) `mul` (NormalProduct ops2) = NormalProduct (ops1 ++ ops2)
-        (SymmetricProduct ops1) `mul` (SymmetricProduct ops2) = SymmetricProduct (S.union ops1 ops2)
+        (SymmetricProduct ops1) `mul` (SymmetricProduct ops2) = SymmetricProduct (M.unionWith (+) ops1 ops2)
         x `mul` y = error "Cannot multiply normal and symmetric product"
 
-    groupTerms x = M.unionsWith (+) x
-
-    instance (Ord a, Eq a, Show a, Multipliable a) => Num (Sum a) where
+    instance (Identity a, Ord a, Eq a, Show a, Multipliable a) => Num (Sum a) where
         negate (Sum ts) = Sum (M.map negate ts)
-        negate (Constant c) = Constant (negate c)
-        (Sum ts1) + (Sum ts2) = Sum (groupTerms [ts1, ts2])
-        (Constant c) * (Sum ts) = Sum (M.map ((*) c) ts)
-        (Sum ts) * (Constant c) = Sum (M.map ((*) c) ts)
+        (Sum ts1) + (Sum ts2) = Sum (M.unionWith (+) ts1 ts2)
         (Sum ts1) * (Sum ts2) = Sum (M.fromListWithKey combine products) where
             combine _ x y = x + y
             products = [(t1 `mul` t2, c1 * c2) | (t1, c1) <- M.assocs ts1, (t2, c2) <- M.assocs ts2]
-        fromInteger x = Constant (fromInteger x :: ComplexRational)
+        fromInteger x = Sum $ M.singleton identity (fromInteger x :: ComplexRational)
         abs = undefined
         signum = undefined
 
-    instance (Ord a, Eq a, Show a, Multipliable a) => Fractional (Sum a) where
-        x / (Constant y) = Constant (1 / y) * x
-        fromRational x = Constant (fromRational x :: ComplexRational)
+    instance (Identity a, Ord a, Eq a, Show a, Multipliable a) => Fractional (Sum a) where
+        x / (Sum ts)
+            | M.null ts  = error "Division by zero"
+            | M.size ts > 1 = error "Cannot divide by non-scalar expression"
+            | fst (head pairs) /= identity = error "Cannot divide by non-scalar expression"
+            | otherwise = (Sum $ M.singleton identity (1 / (snd (head pairs)))) * x where
+                pairs = M.assocs ts
+        fromRational x = Sum $ M.singleton identity (fromRational x :: ComplexRational)
 
+
+    class Texable a => Superscriptable a where
+        needsParentheses :: a -> Bool
+        showTexWithExponent :: a -> Integer -> String
+        showTexWithExponent x p = addPower p (showTex x) (needsParentheses x)
+
+    instance Superscriptable Operator where
+        needsParentheses (Op e) = False
+        needsParentheses (DaggerOp e) = True
+    instance Superscriptable Function where
+        needsParentheses (Func e) = False
+        needsParentheses (ConjFunc e) = True
+    instance Superscriptable Differential where
+        needsParentheses _ = True
 
 
     instance Texable Symbol where
@@ -206,20 +226,23 @@ module Wigner.Expression where
     instance Texable a => Texable [a] where
         showTex x = L.intercalate " " (map showTex x)
 
-    instance Texable a => Texable (S.Set a) where
-        showTex x = L.intercalate " " (map showTex (S.elems x))
+    instance (Superscriptable a, Texable a) => Texable (a, Integer) where
+        showTex (x, p) = showTexWithExponent x p
+
+    instance (Superscriptable a, Texable a) => Texable (M.Map a Integer) where
+        showTex x = showTex (M.assocs x)
 
     instance Texable Function where
-        showTex (Func e i) = addPower i (showTex e) False
-        showTex (ConjFunc e i) = addPower i (showTex (Func e 1) ++ "^*") True
+        showTex (Func e) = showTex e
+        showTex (ConjFunc e) = showTex (Func e) ++ "^*"
 
     instance Texable Operator where
-        showTex (Op (Element s is vs) i) = addPower i ("\\hat{" ++ showTex s ++ "}" ++ showTexIV is vs) False
-        showTex (DaggerOp e i) = addPower i (showTex (Op e 1) ++ "^\\dagger") True
+        showTex (Op (Element s is vs)) = "\\hat{" ++ showTex s ++ "}" ++ showTexIV is vs
+        showTex (DaggerOp e) = showTex (Op e) ++ "^\\dagger"
 
     instance Texable Differential where
-        showTex (Diff e i) = makeDiff (diffSymbol e) (showTex (Func e i))
-        showTex (ConjDiff e i) = makeDiff (diffSymbol e) (showTex (ConjFunc e i))
+        showTex (Diff e) = makeDiff (diffSymbol e) (showTex (Func e))
+        showTex (ConjDiff e) = makeDiff (diffSymbol e) (showTex (ConjFunc e))
 
     instance Texable OpFactor where
         showTex (NormalProduct ops) = showTex ops
@@ -233,19 +256,21 @@ module Wigner.Expression where
 
     instance Texable OpTerm where
         showTex (OpTerm fs Nothing) = showTex fs
-        showTex (OpTerm fs (Just opf)) = showTex fs ++ " " ++ showTex opf
+        showTex (OpTerm fs (Just opf)) = showTex (OpTerm fs Nothing) ++ " " ++ showTex opf
 
     instance Texable FuncTerm where
         showTex (FuncTerm ffs) = showTex ffs
 
-    instance Texable a => Texable (Sum a) where
-        showTex (Constant c) = showTex c
+    instance (Identity a, Texable a, Eq a) => Texable (Sum a) where
         showTex (Sum ts)
             | M.null ts = "0"
             | otherwise = showTexList (M.assocs ts) where
-                showTexTuple (t, c) = showCoeff c True ++ " " ++ showTex t
-                showTexList ((t, c):[]) = showCoeff c False ++ " " ++ showTex t
-                showTexList ((t, c):ts) = showTexList [(t, c)] ++ L.intercalate " " (map showTexTuple ts)
+                showTexTuple explicit_plus (t, c)
+                    | t == identity = showCoeff c explicit_plus
+                    | otherwise = showCoeff c explicit_plus ++ " " ++ showTex t
+                showTexList (tc:[]) = showTexTuple False tc
+                showTexList (tc:tcs) = showTexList [tc] ++ " " ++
+                    L.intercalate " " (map (showTexTuple True) tcs)
 
     showCoeff (x :+ y) explicit_plus
         | x == 1 && y == 0 = plus_str
