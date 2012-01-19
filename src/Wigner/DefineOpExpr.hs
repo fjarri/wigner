@@ -1,8 +1,10 @@
+{-# LANGUAGE TypeSynonymInstances, FlexibleInstances #-}
+
 module Wigner.DefineOpExpr(
     operatorFuncIx, operatorFunc, operatorIx, operator,
     functionIx, function, constantIx, constant,
-    fromFuncExpr, i,
-    fromInt) where
+    i, symmetric,
+    makeExpr) where
 
     import Wigner.Complex
     import Wigner.Expression
@@ -24,14 +26,28 @@ module Wigner.DefineOpExpr(
     constantIx s i = functionIx s i []
     constant s = functionIx s [] []
 
-    fromFuncTerm (FuncTerm []) = OpTerm M.empty Nothing
-    fromFuncTerm (FuncTerm [FuncProduct fp]) = OpTerm fp Nothing
-    fromFuncTerm ft = error "Not implemented: conversion of non-function product to operator term"
-
-    fromFuncExpr :: Sum FuncTerm -> Sum OpTerm
-    fromFuncExpr (Sum ts) = Sum $ M.mapKeys fromFuncTerm ts
-
     i = Sum $ M.singleton (identity :: OpTerm) (Coefficient (0 :+ 1 :: ComplexRational))
 
-    fromInt :: Int -> OpExpr
-    fromInt x = fromInteger (fromIntegral x :: Integer) :: OpExpr
+    symmetric :: OpExpr -> OpExpr
+    symmetric (Sum ts) = Sum (M.mapKeys asSym ts) where
+        asSym (OpTerm fs Nothing) = OpTerm fs Nothing
+        asSym (OpTerm fs (Just (NormalProduct ops))) =
+            OpTerm fs (Just (SymmetricProduct (M.fromListWith (+) ops)))
+        asSym (OpTerm fs (Just (SymmetricProduct ops))) = OpTerm fs (Just (SymmetricProduct ops))
+
+
+    class Expressable a where
+        makeExpr :: a -> OpExpr
+
+    instance Expressable FuncTerm where
+        makeExpr (FuncTerm []) = Sum $ M.singleton identity 1
+        makeExpr (FuncTerm [FuncProduct fp]) = makeExpr fp
+        makeExpr ft = error "Not implemented: conversion of non-function product to operator term"
+    instance Expressable FuncExpr where
+        makeExpr (Sum ts) = sum $ map (\(x, c) -> makeExpr x * makeExpr c) (M.assocs ts)
+    instance Expressable OpTerm where makeExpr ot = Sum $ M.singleton ot 1
+    instance Expressable OpFactor where makeExpr opf = makeExpr (OpTerm M.empty (Just opf))
+    instance Expressable Operator where makeExpr op = makeExpr (NormalProduct [(op, 1)])
+    instance Expressable Int where makeExpr x = fromInteger (fromIntegral x :: Integer) :: OpExpr
+    instance Expressable (M.Map Function Int) where makeExpr fs = Sum $ M.singleton (OpTerm fs Nothing) 1
+    instance Expressable Coefficient where makeExpr c = Sum $ M.singleton identity c

@@ -36,27 +36,22 @@ module Wigner.OperatorAlgebra where
     commutator (DaggerOperator x) (Operator y) = - (makeDeltas x y)
     commutator (Operator x) (Operator y) = makeExpr 0
 -}
-    asSymmetricProduct (Sum ts) = Sum (M.mapKeys asSym ts) where
-        asSym (OpTerm fs Nothing) = OpTerm fs Nothing
-        asSym (OpTerm fs (Just (NormalProduct ops))) =
-            OpTerm fs (Just (SymmetricProduct (M.fromListWith (+) ops)))
-        asSym (OpTerm fs (Just (SymmetricProduct ops))) = OpTerm fs (Just (SymmetricProduct ops))
 
     expandOpList :: [(Operator, Int)] -> [(Operator, Int)]
     expandOpList [] = []
-    expandOpList ((op, p):xs) = (take p (repeat (op, 1))) ++ expandOpList xs
+    expandOpList ((op, p):xs) = replicate p (op, 1) ++ expandOpList xs
 
     normalProduct :: [(Operator, Int)] -> OpExpr
-    normalProduct ops = product (map singleOpSum ops) where
-        singleOpSum op = Sum (M.singleton (OpTerm M.empty (Just (NormalProduct [op]))) 1)
+    normalProduct ops = product (map (\(x, p) -> DO.makeExpr x ^ p) ops)
 
     toNormalProduct (Sum ts) = sum (map toNormSum (M.assocs ts)) where
-        toNormSum (ot@(OpTerm fs Nothing), c) = Sum $ M.singleton ot c
-        toNormSum (OpTerm fs (Just opf), c) = sum (toNorm opf) *
-            (Sum (M.singleton (OpTerm fs Nothing) c))
+        toNormSum (ot@(OpTerm fs Nothing), c) =
+            DO.makeExpr ot * DO.makeExpr c
+        toNormSum (OpTerm fs (Just opf), c) =
+            sum (toNorm opf) * DO.makeExpr fs * DO.makeExpr c
         toNorm (SymmetricProduct ops) = map (\x -> normalProduct x / pm_num) pms where
             pms = L.permutations (expandOpList (M.assocs ops))
-            pm_num = DO.fromInt (length pms)
+            pm_num = DO.makeExpr (length pms)
         toNorm (NormalProduct ops) = [normalProduct ops]
 
 
