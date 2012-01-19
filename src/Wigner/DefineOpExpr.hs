@@ -1,7 +1,8 @@
 module Wigner.DefineOpExpr(
     operatorFuncIx, operatorFunc, operatorIx, operator,
     functionIx, function, constantIx, constant,
-    fromFuncExpr, i) where
+    fromFuncExpr, i,
+    fromInt) where
 
     import Wigner.Complex
     import Wigner.Expression
@@ -31,3 +32,6 @@ module Wigner.DefineOpExpr(
     fromFuncExpr (Sum ts) = Sum $ M.mapKeys fromFuncTerm ts
 
     i = Sum $ M.singleton (identity :: OpTerm) (Coefficient (0 :+ 1 :: ComplexRational))
+
+    fromInt :: Int -> OpExpr
+    fromInt x = fromInteger (fromIntegral x :: Integer) :: OpExpr

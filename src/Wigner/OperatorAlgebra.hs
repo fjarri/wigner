@@ -42,11 +42,11 @@ module Wigner.OperatorAlgebra where
             OpTerm fs (Just (SymmetricProduct (M.fromListWith (+) ops)))
         asSym (OpTerm fs (Just (SymmetricProduct ops))) = OpTerm fs (Just (SymmetricProduct ops))
 
-    expandOpList :: [(Operator, Integer)] -> [(Operator, Integer)]
+    expandOpList :: [(Operator, Int)] -> [(Operator, Int)]
     expandOpList [] = []
-    expandOpList ((op, p):xs) = (take (fromIntegral p :: Int) (repeat (op, 1))) ++ expandOpList xs
+    expandOpList ((op, p):xs) = (take p (repeat (op, 1))) ++ expandOpList xs
 
-    normalProduct :: [(Operator, Integer)] -> OpExpr
+    normalProduct :: [(Operator, Int)] -> OpExpr
     normalProduct ops = product (map singleOpSum ops) where
         singleOpSum op = Sum (M.singleton (OpTerm M.empty (Just (NormalProduct [op]))) 1)
 
@@ -54,9 +54,9 @@ module Wigner.OperatorAlgebra where
         toNormSum (ot@(OpTerm fs Nothing), c) = Sum $ M.singleton ot c
         toNormSum (OpTerm fs (Just opf), c) = sum (toNorm opf) *
             (Sum (M.singleton (OpTerm fs Nothing) c))
-        toNorm (SymmetricProduct ops) = map (\x -> normalProduct x / (fromInteger pm_num :: OpExpr)) pms where
+        toNorm (SymmetricProduct ops) = map (\x -> normalProduct x / pm_num) pms where
             pms = L.permutations (expandOpList (M.assocs ops))
-            pm_num = fromIntegral (length pms) :: Integer
+            pm_num = DO.fromInt (length pms)
         toNorm (NormalProduct ops) = [normalProduct ops]
 
 

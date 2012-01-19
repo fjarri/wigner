@@ -16,7 +16,7 @@ module Wigner.Symbols(
     class CanBeIndex a where
         index :: a -> Index
 
-    instance CanBeIndex Integer where index = IndexInteger
+    instance CanBeIndex Int where index = IndexInt
     instance CanBeIndex Symbol where index = IndexSymbol
 
 
@@ -41,8 +41,8 @@ module Wigner.Symbols(
 
     ix_i = index i
     ix_j = index j
-    ix_1 = index (1 :: Integer)
-    ix_2 = index (2 :: Integer)
+    ix_1 = index (1 :: Int)
+    ix_2 = index (2 :: Int)
 
     var_x = variable x
     var_x' = variable x'

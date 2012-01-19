@@ -10,24 +10,24 @@ module Wigner.Expression where
     data Coefficient = Coefficient (Complex Rational) deriving (Show, Eq)
 
     data Symbol = Symbol String deriving (Show, Eq, Ord)
-    data Index = IndexSymbol Symbol | IndexInteger Integer deriving (Show, Eq, Ord)
+    data Index = IndexSymbol Symbol | IndexInt Int deriving (Show, Eq, Ord)
     data Variable = VariableSymbol Symbol deriving (Show, Eq, Ord)
     data Element = Element Symbol [Index] [Variable] deriving (Show, Eq)
 
     data Sum a = Sum (M.Map a Coefficient) deriving (Show, Eq)
 
     type OpExpr = Sum OpTerm
-    data OpTerm = OpTerm (M.Map Function Integer) (Maybe OpFactor) deriving (Show, Eq)
-    data OpFactor = NormalProduct [(Operator, Integer)]
-                  | SymmetricProduct (M.Map Operator Integer)
+    data OpTerm = OpTerm (M.Map Function Int) (Maybe OpFactor) deriving (Show, Eq)
+    data OpFactor = NormalProduct [(Operator, Int)]
+                  | SymmetricProduct (M.Map Operator Int)
                   deriving (Ord, Show, Eq)
 
     type FuncExpr = Sum FuncTerm
     data FuncTerm = FuncTerm [FuncFactor] deriving (Show, Eq, Ord)
     data FuncFactor = OpExpectation OpFactor
-                    | FuncExpectation (M.Map Function Integer)
-                    | FuncProduct (M.Map Function Integer)
-                    | DiffProduct (M.Map Differential Integer)
+                    | FuncExpectation (M.Map Function Int)
+                    | FuncProduct (M.Map Function Int)
+                    | DiffProduct (M.Map Differential Int)
                     deriving (Show, Eq, Ord)
 
     data Function = Func Element
@@ -143,7 +143,7 @@ module Wigner.Expression where
     connectFactors (DiffProduct x) (DiffProduct y) = [DiffProduct (M.unionWith (+) x y)]
     connectFactors x y = [x, y]
 
-    connectTuples :: (Operator, Integer) -> (Operator, Integer) -> [(Operator, Integer)]
+    connectTuples :: (Operator, Int) -> (Operator, Int) -> [(Operator, Int)]
     connectTuples (x1, y1) (x2, y2)
         | x1 == x2 = [(x1, y1 + y2)]
         | otherwise = [(x1, y1), (x2, y2)]
@@ -186,7 +186,7 @@ module Wigner.Expression where
 
     class Texable a => Superscriptable a where
         needsParentheses :: a -> Bool
-        showTexWithExponent :: a -> Integer -> String
+        showTexWithExponent :: a -> Int -> String
         showTexWithExponent x p = addPower p (showTex x) (needsParentheses x)
 
     instance Superscriptable Operator where
@@ -204,7 +204,7 @@ module Wigner.Expression where
 
     instance Texable Index where
         showTex (IndexSymbol s) = showTex s
-        showTex (IndexInteger s) = show s
+        showTex (IndexInt s) = show s
 
     instance Texable Variable where
         showTex (VariableSymbol s) = showTex s
@@ -222,7 +222,7 @@ module Wigner.Expression where
     instance Texable Element where
         showTex (Element s is vs) = showTex s ++ showTexIV is vs
 
-    addPower :: Integer -> String -> Bool -> String
+    addPower :: Int -> String -> Bool -> String
     addPower 1 s need_parentheses = s
     addPower i s True = addPower i ("(" ++ s ++ ")") False
     addPower i s False = s ++ "^" ++ show i
@@ -233,10 +233,10 @@ module Wigner.Expression where
     instance Texable a => Texable [a] where
         showTex x = unwords (map showTex x)
 
-    instance (Superscriptable a, Texable a) => Texable (a, Integer) where
+    instance (Superscriptable a, Texable a) => Texable (a, Int) where
         showTex (x, p) = showTexWithExponent x p
 
-    instance (Superscriptable a, Texable a) => Texable (M.Map a Integer) where
+    instance (Superscriptable a, Texable a) => Texable (M.Map a Int) where
         showTex x = showTex (M.assocs x)
 
     instance Texable Coefficient where
