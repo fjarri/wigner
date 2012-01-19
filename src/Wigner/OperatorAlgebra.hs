@@ -37,23 +37,19 @@ module Wigner.OperatorAlgebra where
     commutator (Operator x) (Operator y) = makeExpr 0
 -}
 
-    expandOpList :: [(Operator, Int)] -> [(Operator, Int)]
-    expandOpList [] = []
-    expandOpList ((op, p):xs) = replicate p (op, 1) ++ expandOpList xs
+    toNormalProduct (Sum ts) = sum (map termToNP (M.assocs ts)) where
+        termToNP (ot@(OpTerm fs Nothing), c) = DO.makeExpr ot * DO.makeExpr c
+        termToNP (OpTerm fs (Just opf), c) = opFactorToNP opf * DO.makeExpr fs * DO.makeExpr c
 
-    normalProduct :: [(Operator, Int)] -> OpExpr
-    normalProduct ops = product (map (\(x, p) -> DO.makeExpr x ^ p) ops)
-
-    toNormalProduct (Sum ts) = sum (map toNormSum (M.assocs ts)) where
-        toNormSum (ot@(OpTerm fs Nothing), c) =
-            DO.makeExpr ot * DO.makeExpr c
-        toNormSum (OpTerm fs (Just opf), c) =
-            sum (toNorm opf) * DO.makeExpr fs * DO.makeExpr c
-        toNorm (SymmetricProduct ops) = map (\x -> normalProduct x / pm_num) pms where
-            pms = L.permutations (expandOpList (M.assocs ops))
+        opFactorToNP (SymmetricProduct ops) = sum $ map (\x -> mulTuples x / pm_num) pms where
+            pms = L.permutations (expandProducts (M.assocs ops))
             pm_num = DO.makeExpr (length pms)
-        toNorm (NormalProduct ops) = [normalProduct ops]
+        opFactorToNP (NormalProduct ops) = mulTuples ops
 
+        expandProducts [] = []
+        expandProducts ((op, p):tuples) = replicate p (op, 1) ++ expandProducts tuples
+
+        mulTuples tuples = product (map (\(op, p) -> DO.makeExpr op ^ p) tuples)
 
 {-
     variance :: (Map Symbol Symbol) -> (Sum OpTerm) -> (Sum OpTerm) -> (Sum FuncTerm)
