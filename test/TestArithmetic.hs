@@ -1,10 +1,12 @@
+module TestArithmetic(test_group) where
+
 import qualified Wigner.Symbols as S
 import qualified Wigner.DefineOpExpr as DO
 import qualified Wigner.DefineFuncExpr as DF
 
 import Data.Ratio
 
-import Test.Framework (defaultMain, testGroup)
+import Test.Framework (testGroup)
 import Test.Framework.Providers.HUnit
 import Test.HUnit
 
@@ -45,13 +47,11 @@ test_combine_differentials = expr1 * expr2 @?= result where
     expr2 = dalpha ^ 2 * f_beta
     result = f_alpha * f_beta * (dalpha ^ 3) * f_beta
 
-tg_addition = testGroup "Addition" [
-        testCase "group_terms" test_group_terms,
-        testCase "remove_zero_terms" test_remove_zero_terms,
-        testCase "zero_result" test_zero_result,
-        testCase "operator_exponentiation" test_operator_exponentiation,
-        testCase "combine_differentials" test_combine_differentials
-    ]
-tests = [tg_addition]
 
-main = defaultMain tests
+test_group = testGroup "Addition" [
+    testCase "group_terms" test_group_terms,
+    testCase "remove_zero_terms" test_remove_zero_terms,
+    testCase "zero_result" test_zero_result,
+    testCase "operator_exponentiation" test_operator_exponentiation,
+    testCase "combine_differentials" test_combine_differentials
+    ]

@@ -1,3 +1,5 @@
+module TestOperators(test_group) where
+
 import qualified Wigner.Symbols as S
 import qualified Wigner.DefineOpExpr as DO
 import Wigner.Expression
@@ -5,7 +7,7 @@ import Wigner.OperatorAlgebra
 
 import Data.Ratio
 
-import Test.Framework (defaultMain, testGroup)
+import Test.Framework (testGroup)
 import Test.Framework.Providers.HUnit
 import Test.HUnit
 
@@ -60,16 +62,13 @@ test_normal_to_symmetric_4 = (toSymmetricProduct bosonicCommutationRelation expr
         delta_jk * delta_lm / 4 - delta_jm * delta_kl / 4)
 
 
-tg_operators = testGroup "Operator Algebra" [
-        testCase "define_symmetric" test_define_symmetric,
-        testCase "normal_to_normal" test_normal_to_normal,
-        testCase "symmetric_to_normal" test_symmetric_to_normal,
-        testCase "symmetric_to_symmetric" test_symmetric_to_symmetric,
-        testCase "normal_to_symmetric" test_normal_to_symmetric,
-        testCase "normal_to_symmetric_2" test_normal_to_symmetric_2,
-        testCase "normal_to_symmetric_3" test_normal_to_symmetric_3,
-        testCase "normal_to_symmetric_4" test_normal_to_symmetric_4
+test_group = testGroup "Operators" [
+    testCase "define_symmetric" test_define_symmetric,
+    testCase "normal_to_normal" test_normal_to_normal,
+    testCase "symmetric_to_normal" test_symmetric_to_normal,
+    testCase "symmetric_to_symmetric" test_symmetric_to_symmetric,
+    testCase "normal_to_symmetric" test_normal_to_symmetric,
+    testCase "normal_to_symmetric_2" test_normal_to_symmetric_2,
+    testCase "normal_to_symmetric_3" test_normal_to_symmetric_3,
+    testCase "normal_to_symmetric_4" test_normal_to_symmetric_4
     ]
-tests = [tg_operators]
-
-main = defaultMain tests
