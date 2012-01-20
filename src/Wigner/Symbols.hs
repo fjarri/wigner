@@ -4,53 +4,54 @@ module Wigner.Symbols(
     var_x, var_x',
     alpha, beta, delta, rho, theta,
     symbol, index, variable,
-    mapElement, mapElementWith) where
+    mapElement, mapElementWith
+    ) where
 
-    import Data.Map as M
-    import Wigner.Expression
-    import Data.Maybe
+import Data.Map as M
+import Wigner.Expression
+import Data.Maybe
 
-    symbol = Symbol
-
-
-    class CanBeIndex a where
-        index :: a -> Index
-
-    instance CanBeIndex Int where index = IndexInt
-    instance CanBeIndex Symbol where index = IndexSymbol
+symbol = Symbol
 
 
-    class CanBeVariable a where
-        variable :: a -> Variable
+class CanBeIndex a where
+    index :: a -> Index
 
-    instance CanBeVariable Symbol where variable = VariableSymbol
+instance CanBeIndex Int where index = IndexInt
+instance CanBeIndex Symbol where index = IndexSymbol
 
 
-    a = symbol "a"
-    b = symbol "b"
-    i = symbol "i"
-    j = symbol "j"
-    x = symbol "x"
-    x' = symbol "x'"
+class CanBeVariable a where
+    variable :: a -> Variable
 
-    alpha = symbol "\\alpha"
-    beta = symbol "\\beta"
-    delta = symbol "\\delta"
-    rho = symbol "\\rho"
-    theta = symbol "\\theta"
+instance CanBeVariable Symbol where variable = VariableSymbol
 
-    ix_i = index i
-    ix_j = index j
-    ix_1 = index (1 :: Int)
-    ix_2 = index (2 :: Int)
 
-    var_x = variable x
-    var_x' = variable x'
+a = symbol "a"
+b = symbol "b"
+i = symbol "i"
+j = symbol "j"
+x = symbol "x"
+x' = symbol "x'"
 
-    default_map = fromList [(a, alpha), (b, beta)]
+alpha = symbol "\\alpha"
+beta = symbol "\\beta"
+delta = symbol "\\delta"
+rho = symbol "\\rho"
+theta = symbol "\\theta"
 
-    mapElementWith :: M.Map Symbol Symbol -> Element -> Element
-    mapElementWith sym_map (Element s i v) = Element (fromJust (M.lookup s sym_map)) i v where
-        error_msg = "Symbol was not found in correspondence map"
+ix_i = index i
+ix_j = index j
+ix_1 = index (1 :: Int)
+ix_2 = index (2 :: Int)
 
-    mapElement = mapElementWith default_map
+var_x = variable x
+var_x' = variable x'
+
+default_map = fromList [(a, alpha), (b, beta)]
+
+mapElementWith :: M.Map Symbol Symbol -> Element -> Element
+mapElementWith sym_map (Element s i v) = Element (fromJust (M.lookup s sym_map)) i v where
+    error_msg = "Symbol was not found in correspondence map"
+
+mapElement = mapElementWith default_map

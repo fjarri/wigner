@@ -95,7 +95,7 @@ instance Ord OpTerm where
 class ComplexNum a where
     fromComplexRational :: Complex Rational -> a
 
-instance ComplexNum Coefficient where fromComplexRational x = Coefficient x
+instance ComplexNum Coefficient where fromComplexRational = Coefficient
 
 
 class HasIdentity a where
@@ -270,7 +270,7 @@ splitOpTerm (ot@(OpTerm fs Nothing)) = (toExpr ot, Nothing)
 splitOpTerm (OpTerm fs opf) = (toExpr (OpTerm fs Nothing), opf)
 
 splitOpTermCoeff :: (Coefficient, OpTerm) -> (OpExpr, Maybe OpFactor)
-splitOpTermCoeff (c, ot) = (f_expr * (Sum (M.singleton identity c)), opf) where
+splitOpTermCoeff (c, ot) = (f_expr * Sum (M.singleton identity c), opf) where
     (f_expr, opf) = splitOpTerm ot
 
 

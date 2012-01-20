@@ -41,12 +41,12 @@ test_normal_to_symmetric = (toSymmetricProduct bosonicCommutationRelation expr) 
 
 test_normal_to_symmetric_2 = (toSymmetricProduct bosonicCommutationRelation expr) @?= result where
     expr = da1 * da1 * a1 * a1
-    result = asSymmetric (da1 * da1 * a1 * a1) -
+    result = asSymmetric (da1 ^ 2 * a1 ^ 2) -
         2 * asSymmetric (da1 * a1) + DO.one / 2
 
 test_normal_to_symmetric_3 = (toSymmetricProduct bosonicCommutationRelation expr) @?= result where
     expr = da1 * a1 * da1 * a1
-    result = asSymmetric (da1 * da1 * a1 * a1) - asSymmetric (da1 * a1)
+    result = asSymmetric (da1 ^ 2 * a1 ^ 2) - asSymmetric (da1 * a1)
 
 test_normal_to_symmetric_4 = (toSymmetricProduct bosonicCommutationRelation expr) @?= result where
     [j, k, l, m] = map (S.index . S.symbol) ["j", "k", "l", "m"]
