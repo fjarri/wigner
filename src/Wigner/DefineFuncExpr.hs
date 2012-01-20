@@ -1,34 +1,33 @@
+{-# LANGUAGE TypeSynonymInstances, FlexibleInstances #-}
+
 module Wigner.DefineFuncExpr(
     functionIx, function, constantIx, constant,
     differentialFuncIx, differentialIx, differential,
-    fromOpExpr, i) where
+    zero, one, i) where
 
     import Wigner.Complex
     import Wigner.Expression
     import qualified Data.Map as M
 
-    makeExpr factor = Sum $ M.singleton (FuncTerm [factor]) 1
-
-    functionIx s i v = makeExpr func_factor where
-        func = Func $ Element s i v
-        func_factor = FuncProduct $ M.singleton func 1
+    functionIx s i v = fromFunction $ Func $ Element s i v :: FuncExpr
     function s = functionIx s []
 
     constantIx s i = functionIx s i []
     constant s = functionIx s [] []
 
-    differentialFuncIx s i v = makeExpr func_factor where
-        diff = Diff $ Element s i v
-        func_factor = DiffProduct $ M.singleton diff 1
+    differentialFuncIx s i v = fromDifferential $ Diff $ Element s i v :: FuncExpr
     differentialIx s i = differentialFuncIx s i []
     differential s = differentialFuncIx s [] []
 
-    fromOpTerm (OpTerm fs Nothing)
-        | M.null fs = FuncTerm []
-        | otherwise = FuncTerm [FuncProduct fs]
-    fromOpTerm opt = error "Cannot convert operators to functions"
+    zero = 0 :: FuncExpr
+    one = 1 :: FuncExpr
+    i = makeExpr (0 :+ 1 :: Complex Rational)
 
-    fromOpExpr :: Sum OpTerm -> Sum FuncTerm
-    fromOpExpr (Sum ts) = Sum $ M.mapKeys fromOpTerm ts
+    class Expressable a where
+        makeExpr :: a -> FuncExpr
 
-    i = Sum $ M.singleton (identity :: FuncTerm) (Coefficient (0 :+ 1 :: ComplexRational))
+    instance Expressable Int where makeExpr x = fromInteger (fromIntegral x :: Integer) :: FuncExpr
+    instance Expressable Rational where makeExpr x = fromRational x :: FuncExpr
+    instance Expressable (Complex Rational) where makeExpr x = fromComplexRational x :: FuncExpr
+
+--    i = Sum $ M.singleton (identity :: FuncTerm) (Coefficient (0 :+ 1 :: ComplexRational))

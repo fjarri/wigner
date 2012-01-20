@@ -21,32 +21,32 @@ beta = DO.constant S.beta
 
 
 test_define_symmetric = expr1 @?= expr2 where
-    expr1 = DO.symmetric $ da1 ^ 2 * a1 ^ 2
-    expr2 = DO.symmetric $ a1 ^ 2 * da1 ^ 2
+    expr1 = asSymmetric $ da1 ^ 2 * a1 ^ 2
+    expr2 = asSymmetric $ a1 ^ 2 * da1 ^ 2
 
 test_normal_to_normal = (toNormalProduct expr) @?= expr where
     expr = da1 ^ 2 * a1 ^ 2
 
 test_symmetric_to_normal = (toNormalProduct expr) @?= result where
-    expr = DO.symmetric $ da1 ^ 2 * a1 ^ 2
+    expr = asSymmetric $ da1 ^ 2 * a1 ^ 2
     result = (da1 ^ 2 * a1 ^ 2 + da1 * a1 * da1 * a1 + da1 * a1 ^ 2 * da1 +
         a1 * da1 ^ 2 * a1 + a1 * da1 * a1 * da1 + a1 ^ 2 * da1 ^ 2) / 6
 
 test_symmetric_to_symmetric = (toSymmetricProduct bosonicCommutationRelation expr) @?= expr where
-    expr = DO.symmetric $ da1 ^ 2 * a1 ^ 2
+    expr = asSymmetric $ da1 ^ 2 * a1 ^ 2
 
 test_normal_to_symmetric = (toSymmetricProduct bosonicCommutationRelation expr) @?= result where
     expr = da1 * a1
-    result = DO.symmetric (da1 * a1) - DO.one / 2
+    result = asSymmetric (da1 * a1) - DO.one / 2
 
 test_normal_to_symmetric_2 = (toSymmetricProduct bosonicCommutationRelation expr) @?= result where
     expr = da1 * da1 * a1 * a1
-    result = DO.symmetric (da1 * da1 * a1 * a1) -
-        2 * DO.symmetric (da1 * a1) + DO.one / 2
+    result = asSymmetric (da1 * da1 * a1 * a1) -
+        2 * asSymmetric (da1 * a1) + DO.one / 2
 
 test_normal_to_symmetric_3 = (toSymmetricProduct bosonicCommutationRelation expr) @?= result where
     expr = da1 * a1 * da1 * a1
-    result = DO.symmetric (da1 * da1 * a1 * a1) - DO.symmetric (da1 * a1)
+    result = asSymmetric (da1 * da1 * a1 * a1) - asSymmetric (da1 * a1)
 
 test_normal_to_symmetric_4 = (toSymmetricProduct bosonicCommutationRelation expr) @?= result where
     [j, k, l, m] = map (S.index . S.symbol) ["j", "k", "l", "m"]
@@ -57,7 +57,7 @@ test_normal_to_symmetric_4 = (toSymmetricProduct bosonicCommutationRelation expr
         map (DO.makeExpr . makeIndexDelta) [(k, l), (l, m), (j, m), (j, k)]
 
     expr = daj * ak * dal * am
-    result = DO.symmetric (daj * dal * ak * am +
+    result = asSymmetric (daj * dal * ak * am +
         (delta_kl * daj * am - delta_lm * daj * ak - delta_jm * dal * ak - delta_jk * dal * am) / 2 +
         delta_jk * delta_lm / 4 - delta_jm * delta_kl / 4)
 

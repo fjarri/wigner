@@ -3,48 +3,44 @@
 module Wigner.DefineOpExpr(
     operatorFuncIx, operatorFunc, operatorIx, operator,
     functionIx, function, constantIx, constant,
-    zero, one, i, symmetric,
-    makeExpr) where
+    zero, one, i, makeExpr, symmetric, normal) where
 
     import Wigner.Complex
     import Wigner.Expression
     import qualified Data.Map as M
     import Data.Ratio
 
-    operatorFuncIx s i v = Sum $ M.singleton op_term 1 where
-        op = Op $ Element s i v
-        op_factor = Just $ NormalProduct [(op, 1)]
-        op_term = OpTerm M.empty op_factor
+    operatorFuncIx s i v = fromOperator $ Op $ Element s i v :: OpExpr
     operatorFunc s = operatorFuncIx s []
     operatorIx s i = operatorFuncIx s i []
     operator s = operatorFuncIx s [] []
 
-    functionIx s i v = Sum $ M.singleton op_term 1 where
-        func = Func $ Element s i v
-        op_term = OpTerm (M.singleton func 1) Nothing
+    functionIx s i v = fromFunction $ Func $ Element s i v :: OpExpr
     function s = functionIx s []
 
     constantIx s i = functionIx s i []
     constant s = functionIx s [] []
 
+    normal ops = product (map fromOperator ops)
+    symmetric ops = asSymmetric (normal ops)
+
     zero = 0 :: OpExpr
     one = 1 :: OpExpr
-    i = makeExpr (Coefficient (0 :+ 1 :: ComplexRational))
-
-    symmetric :: OpExpr -> OpExpr
-    symmetric (Sum ts) = Sum (M.mapKeys asSym ts) where
-        asSym (OpTerm fs Nothing) = OpTerm fs Nothing
-        asSym (OpTerm fs (Just (NormalProduct ops))) =
-            OpTerm fs (Just (SymmetricProduct (M.fromListWith (+) ops)))
-        asSym (OpTerm fs (Just (SymmetricProduct ops))) = OpTerm fs (Just (SymmetricProduct ops))
-
+    i = makeExpr (0 :+ 1 :: Complex Rational)
 
     class Expressable a where
         makeExpr :: a -> OpExpr
 
-    instance Expressable Function where
-        makeExpr x = makeExpr (M.singleton x (1 :: Int))
-    instance Expressable FuncTerm where
+    instance Expressable Int where makeExpr x = fromInteger (fromIntegral x :: Integer) :: OpExpr
+    instance Expressable Rational where makeExpr x = fromRational x :: OpExpr
+    instance Expressable (Complex Rational) where makeExpr x = fromComplexRational x :: OpExpr
+    instance Expressable Operator where makeExpr = fromOperator
+    instance Expressable Function where makeExpr = fromFunction
+    instance Expressable [Operator] where makeExpr x = product (map fromOperator x)
+    instance Expressable [(Operator, Int)] where
+        makeExpr pairs = product (map (\(x, p) -> fromOperator x ^ p) pairs)
+
+{-    instance Expressable FuncTerm where
         makeExpr (FuncTerm []) = one
         makeExpr (FuncTerm [FuncProduct fp]) = makeExpr fp
         makeExpr ft = error "Not implemented: conversion of non-function product to operator term"
@@ -57,3 +53,4 @@ module Wigner.DefineOpExpr(
     instance Expressable Rational where makeExpr x = fromRational x :: OpExpr
     instance Expressable (M.Map Function Int) where makeExpr fs = Sum $ M.singleton (OpTerm fs Nothing) 1
     instance Expressable Coefficient where makeExpr c = Sum $ M.singleton identity c
+-}

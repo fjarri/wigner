@@ -35,18 +35,16 @@ module Wigner.OperatorAlgebra where
     bosonicCommutationRelation (Op x) (Op y) = DO.zero
     bosonicCommutationRelation (DaggerOp x) (DaggerOp y) = DO.zero
     bosonicCommutationRelation (Op x) (DaggerOp y) = if sameSymbol x y
-        then DO.makeExpr $ M.fromList $ collapseProduct (makeDeltas x y)
+        then product (map fromFunction (makeDeltas x y))
         else DO.zero
     bosonicCommutationRelation (DaggerOp x) (Op y) = - bosonicCommutationRelation (Op x) (DaggerOp y)
 
 
-    toNormalProduct (Sum ts) = sum (map termToNP (M.assocs ts)) where
-        termToNP (ot@(OpTerm fs Nothing), c) = DO.makeExpr ot * DO.makeExpr c
-        termToNP (OpTerm fs (Just opf), c) = opFactorToNP opf * DO.makeExpr fs * DO.makeExpr c
-
-        opFactorToNP (opf@(NormalProduct ops)) = DO.makeExpr opf -- mulTuples ops
-        opFactorToNP (SymmetricProduct ops) = sum (map (product . map DO.makeExpr) pms) / pm_num where
-            pms = L.permutations (expandProduct (M.assocs ops))
+    toNormalProduct expr = sum (map (termToNP . splitOpTermCoeff) (terms expr)) where
+        termToNP (f, Nothing) = f
+        termToNP (f, Just (NormalProduct ops)) = f * DO.normal (factorsExpanded ops)
+        termToNP (f, Just (SymmetricProduct ops)) = f * sum (map DO.makeExpr pms) / pm_num where
+            pms = L.permutations (factorsExpanded ops) :: [[Operator]]
             pm_num = DO.makeExpr (length pms)
 
     expandProduct :: [(a, Int)] -> [a]
@@ -56,13 +54,10 @@ module Wigner.OperatorAlgebra where
     collapseProduct x = map (\x -> (head x, L.length x)) (L.group x)
 
     toSymmetricProduct :: CommutationRelation -> OpExpr -> OpExpr
-    toSymmetricProduct comm (Sum ts) = sum (map (termToSP comm) (M.assocs ts))
-
-    termToSP comm (ot@(OpTerm fs Nothing), c) = DO.makeExpr ot * DO.makeExpr c
-    termToSP comm (OpTerm fs (Just opf), c) = opFactorToSP comm opf * DO.makeExpr fs * DO.makeExpr c
-
-    terms (Sum ts) = M.assocs ts
-    extractOps (OpTerm fs (Just (NormalProduct ops))) = ops
+    toSymmetricProduct comm expr = sum (map ((termToSP comm) . splitOpTermCoeff) (terms expr)) where
+        termToSP comm (f, Nothing) = f
+        termToSP comm (f, Just (SymmetricProduct ops)) = f * DO.symmetric (factorsExpanded ops)
+        termToSP comm (f, Just (NormalProduct ops)) = f * opsToSP comm ops
 
     -- Given target operator, finds first occurence of target_op in operator product
     -- and moves it closer to the beginning.
@@ -85,25 +80,23 @@ module Wigner.OperatorAlgebra where
 
     permuteTerm :: CommutationRelation -> [Operator] -> [Operator] -> OpExpr
     permuteTerm comm target ops
---        | (not $ (null (target L.\\ ops))) = error (show target ++ "\n" ++ show ops)
         | target == ops = DO.zero
         | otherwise = permuteTerm comm target swapped +
-            coeff * DO.makeExpr (NormalProduct $ collapseProduct lo) where
+            coeff * DO.makeExpr lo where
             (swapped, coeff, lo) = swapDifferent comm target ops
 
-    opFactorToSP :: CommutationRelation -> OpFactor -> OpExpr
-    opFactorToSP comm (opf@(SymmetricProduct ops)) = DO.makeExpr opf
-    opFactorToSP comm (NormalProduct []) = DO.one
-    opFactorToSP comm (opf@(NormalProduct [op])) = DO.symmetric (DO.makeExpr opf)
-    opFactorToSP comm (opf@(NormalProduct ops)) = same_order - lower_part where
-        same_order = DO.symmetric (DO.makeExpr opf)
-        expanded_target = expandProduct ops -- [Operator]
+    opsToSP :: CommutationRelation -> [(Operator, Int)] -> OpExpr
+    opsToSP comm [] = DO.one
+    opsToSP comm [op] = DO.symmetric (factorsExpanded [op])
+    opsToSP comm ops = same_order - lower_part where
+        same_order = DO.symmetric (factorsExpanded ops)
+        expanded_target = factorsExpanded ops -- [Operator]
         from_symm = toNormalProduct same_order -- OpExpr
 
-        expand (term, c) = (expandProduct (extractOps term), c)
-        expanded_terms = map expand (terms from_symm) -- [([Operator], Int)]
+        expand (f, Just (NormalProduct ops)) = (f, factorsExpanded ops)
+        expanded_terms = map (expand . splitOpTermCoeff) (terms from_symm)
 
-        lowerPartForTerm (ops, c) = DO.makeExpr c * permuteTerm comm expanded_target ops
+        lowerPartForTerm (f, ops) = f * permuteTerm comm expanded_target ops
         lower_part_normal = sum $ map lowerPartForTerm expanded_terms
 
         lower_part = toSymmetricProduct comm lower_part_normal
