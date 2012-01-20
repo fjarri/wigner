@@ -3,7 +3,6 @@ import qualified Wigner.DefineOpExpr as DO
 
 import Data.Ratio
 import Wigner.Complex
-import Wigner.Operations
 import Wigner.Texable
 import Wigner.Expression
 

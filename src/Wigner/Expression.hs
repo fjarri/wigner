@@ -281,7 +281,7 @@ class Factorisable a b where
 
 instance Factorisable (M.Map a Int) a where factors = M.assocs
 instance Factorisable [(a, Int)] a where factors = id
---instance Factorisable [a] a where factors x = zip x (replicate (length x) 1)
+
 
 class Texable a => Superscriptable a where
     needsParentheses :: a -> Bool

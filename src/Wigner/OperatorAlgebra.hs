@@ -1,4 +1,10 @@
-module Wigner.OperatorAlgebra where
+module Wigner.OperatorAlgebra(
+    bosonicCommutationRelation,
+    makeIndexDelta,
+    makeVariableDelta,
+    toNormalProduct,
+    toSymmetricProduct
+    ) where
 
 import qualified Data.Map as M
 import qualified Data.List as L
@@ -44,14 +50,8 @@ toNormalProduct expr = sum (map (termToNP . splitOpTermCoeff) (terms expr)) wher
     termToNP (f, Nothing) = f
     termToNP (f, Just (NormalProduct ops)) = f * DO.normalProduct (factorsExpanded ops)
     termToNP (f, Just (SymmetricProduct ops)) = f * sum (map DO.normalProduct pms) / pm_num where
-        pms = L.permutations (factorsExpanded ops) :: [[Operator]]
+        pms = L.permutations (factorsExpanded ops)
         pm_num = DO.makeExpr (length pms)
-
-expandProduct :: [(a, Int)] -> [a]
-expandProduct x = L.intercalate [] (map (\(op, p) -> replicate p op) x)
-
-collapseProduct :: Eq a => [a] -> [(a, Int)]
-collapseProduct x = map (\x -> (head x, L.length x)) (L.group x)
 
 toSymmetricProduct :: CommutationRelation -> OpExpr -> OpExpr
 toSymmetricProduct comm expr = sum (map (termToSP comm . splitOpTermCoeff) (terms expr)) where
