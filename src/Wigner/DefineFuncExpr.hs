@@ -10,13 +10,13 @@ import Wigner.Complex
 import Wigner.Expression
 import qualified Data.Map as M
 
-functionIx s i v = fromFunction $ Func $ Element s i v :: FuncExpr
+functionIx s i v = toExpr $ fromFunction $ Func $ Element s i v :: FuncExpr
 function s = functionIx s []
 
 constantIx s i = functionIx s i []
 constant s = functionIx s [] []
 
-differentialFuncIx s i v = fromDifferential $ Diff $ Element s i v :: FuncExpr
+differentialFuncIx s i v = toExpr $ fromDifferential $ Diff $ Element s i v :: FuncExpr
 differentialIx s i = differentialFuncIx s i []
 differential s = differentialFuncIx s [] []
 
@@ -30,5 +30,5 @@ class Expressable a where
 instance Expressable Int where makeExpr x = fromInteger (fromIntegral x :: Integer) :: FuncExpr
 instance Expressable Rational where makeExpr x = fromRational x :: FuncExpr
 instance Expressable (Complex Rational) where makeExpr x = fromComplexRational x :: FuncExpr
-instance Expressable Differential where makeExpr = fromDifferential
-instance Expressable Function where makeExpr = fromFunction
+instance Expressable Differential where makeExpr = toExpr . fromDifferential
+instance Expressable Function where makeExpr = toExpr . fromFunction

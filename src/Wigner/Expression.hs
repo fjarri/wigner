@@ -98,13 +98,6 @@ class ComplexNum a where
 instance ComplexNum Coefficient where fromComplexRational = Coefficient
 
 
-class HasIdentity a where
-    identity :: a
-
-instance HasIdentity OpTerm where identity = OpTerm M.empty Nothing
-instance HasIdentity FuncTerm where identity = FuncTerm []
-
-
 instance ComplexValued Coefficient where
     conjugate (Coefficient x) = Coefficient (conjugate x)
 instance (Ord a, ComplexValued a) => ComplexValued (Sum a) where
@@ -193,7 +186,7 @@ instance Fractional Coefficient where
     (Coefficient x) / (Coefficient y) = Coefficient (x / y)
     fromRational x = Coefficient (fromRational x :: ComplexRational)
 
-instance (HasIdentity a, Ord a, Eq a, Show a, Multipliable a) => Num (Sum a) where
+instance (Term a, Ord a, Eq a, Show a, Multipliable a) => Num (Sum a) where
     negate (Sum ts) = Sum (M.map negate ts)
     (Sum ts1) + (Sum ts2) = Sum $ M.filter (/= 0) (M.unionWith (+) ts1 ts2)
     (Sum ts1) * (Sum ts2) = Sum $ M.filter (/= 0) (M.fromListWithKey combine products) where
@@ -204,7 +197,7 @@ instance (HasIdentity a, Ord a, Eq a, Show a, Multipliable a) => Num (Sum a) whe
     abs = undefined
     signum = undefined
 
-instance (HasIdentity a, Ord a, Eq a, Show a, Multipliable a) => Fractional (Sum a) where
+instance (Term a, Ord a, Eq a, Show a, Multipliable a) => Fractional (Sum a) where
     x / (Sum ts)
         | M.null ts  = error "Division by zero"
         | M.size ts > 1 = error "Not implemented: division by sum"
@@ -215,11 +208,12 @@ instance (HasIdentity a, Ord a, Eq a, Show a, Multipliable a) => Fractional (Sum
         | x == 0 = Sum M.empty
         | otherwise = Sum $ M.singleton identity (fromRational x :: Coefficient)
 
-instance HasIdentity a => ComplexNum (Sum a) where
+instance Term a => ComplexNum (Sum a) where
     fromComplexRational x = Sum $ M.singleton identity (fromComplexRational x :: Coefficient)
 
 
 class Term a where
+    identity :: a
     fromFunction :: Function -> a
     fromOperator :: Operator -> a
     fromDifferential :: Differential -> a
@@ -227,20 +221,16 @@ class Term a where
     toExpr x = Sum (M.singleton x 1)
 
 instance Term OpTerm where
+    identity = OpTerm M.empty Nothing
     fromFunction x = OpTerm (M.singleton x 1) Nothing
     fromOperator x = OpTerm M.empty (Just (NormalProduct [(x, 1)]))
     fromDifferential x = error "Not implemented: operator expressions containing differentials"
 
 instance Term FuncTerm where
+    identity = FuncTerm []
     fromFunction x = FuncTerm [FuncProduct (M.singleton x 1)]
     fromOperator x = error "Cannot create functional term from an operator"
     fromDifferential x = FuncTerm [DiffProduct (M.singleton x 1)]
-
-instance Term a => Term (Sum a) where
-    fromFunction x = toExpr $ fromFunction x
-    fromOperator x = toExpr $ fromOperator x
-    fromDifferential x = toExpr $ fromDifferential x
-
 
 asSymmetric :: OpExpr -> OpExpr
 asSymmetric (Sum ts) = Sum $ M.mapKeys asSym ts where

@@ -41,7 +41,7 @@ bosonicCommutationRelation :: CommutationRelation
 bosonicCommutationRelation (Op x) (Op y) = DO.zero
 bosonicCommutationRelation (DaggerOp x) (DaggerOp y) = DO.zero
 bosonicCommutationRelation (Op x) (DaggerOp y) = if sameSymbol x y
-    then product (map fromFunction (makeDeltas x y))
+    then product (map DO.makeExpr (makeDeltas x y))
     else DO.zero
 bosonicCommutationRelation (DaggerOp x) (Op y) = - bosonicCommutationRelation (Op x) (DaggerOp y)
 

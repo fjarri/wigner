@@ -11,18 +11,19 @@ import Wigner.Expression
 import qualified Data.Map as M
 import Data.Ratio
 
-operatorFuncIx s i v = fromOperator $ Op $ Element s i v :: OpExpr
+operatorFuncIx s i v = makeExpr $ Op $ Element s i v :: OpExpr
 operatorFunc s = operatorFuncIx s []
 operatorIx s i = operatorFuncIx s i []
 operator s = operatorFuncIx s [] []
 
-functionIx s i v = fromFunction $ Func $ Element s i v :: OpExpr
+functionIx s i v = makeExpr $ Func $ Element s i v :: OpExpr
 function s = functionIx s []
 
 constantIx s i = functionIx s i []
 constant s = functionIx s [] []
 
-normalProduct ops = product (map fromOperator ops)
+normalProduct :: [Operator] -> OpExpr
+normalProduct ops = product (map makeExpr ops)
 symmetricProduct ops = asSymmetric (normalProduct ops)
 
 zero = 0 :: OpExpr
@@ -35,5 +36,5 @@ class Expressable a where
 instance Expressable Int where makeExpr x = fromInteger (fromIntegral x :: Integer) :: OpExpr
 instance Expressable Rational where makeExpr x = fromRational x :: OpExpr
 instance Expressable (Complex Rational) where makeExpr x = fromComplexRational x :: OpExpr
-instance Expressable Operator where makeExpr = fromOperator
-instance Expressable Function where makeExpr = fromFunction
+instance Expressable Operator where makeExpr = toExpr . fromOperator
+instance Expressable Function where makeExpr = toExpr . fromFunction
