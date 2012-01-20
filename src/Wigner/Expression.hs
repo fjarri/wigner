@@ -32,6 +32,9 @@ import qualified Data.Map as M
 import qualified Data.Tuple as T
 import qualified Data.List as L
 
+
+-- Data types
+
 type ComplexRational = Complex Rational
 data Coefficient = Coefficient (ComplexRational) deriving (Show, Eq)
 
@@ -66,6 +69,9 @@ data Differential = Diff Element
                   | ConjDiff Element
                   deriving (Show, Eq)
 
+
+-- Ord instances
+
 compareWithFallback :: Ord a => Ordering -> a -> a -> Ordering
 compareWithFallback fb x y = if res == EQ then fb else res where
     res = compare x y
@@ -92,11 +98,7 @@ instance Ord OpTerm where
         compare (opf1, fs1) (opf2, fs2)
 
 
-class ComplexNum a where
-    fromComplexRational :: Complex Rational -> a
-
-instance ComplexNum Coefficient where fromComplexRational = Coefficient
-
+-- ComplexValued instances
 
 instance ComplexValued Coefficient where
     conjugate (Coefficient x) = Coefficient (conjugate x)
@@ -118,6 +120,8 @@ instance ComplexValued Differential where
     conjugate (ConjDiff e) = Diff e
 
 
+-- OperatorValued instances
+
 class OperatorValued a where
     dagger :: a -> a
 
@@ -135,6 +139,24 @@ instance OperatorValued Operator where
     dagger (Op e) = DaggerOp e
     dagger (DaggerOp e) = Op e
 
+
+-- Multipliable instances
+
+glueLists :: (a -> a -> [a]) -> [a] -> [a] -> [a]
+glueLists connect l1 l2
+    | null l1 || null l2 = l1 ++ l2
+    | otherwise = init l1 ++ intersection ++ tail l2 where
+        intersection = connect (last l1) (head l2)
+
+connectFactors :: FuncFactor -> FuncFactor -> [FuncFactor]
+connectFactors (FuncProduct x) (FuncProduct y) = [FuncProduct (M.unionWith (+) x y)]
+connectFactors (DiffProduct x) (DiffProduct y) = [DiffProduct (M.unionWith (+) x y)]
+connectFactors x y = [x, y]
+
+connectTuples :: (Operator, Int) -> (Operator, Int) -> [(Operator, Int)]
+connectTuples (x1, y1) (x2, y2)
+    | x1 == x2 = [(x1, y1 + y2)]
+    | otherwise = [(x1, y1), (x2, y2)]
 
 class Multipliable a where
     mul :: a -> a -> a
@@ -157,22 +179,7 @@ instance Multipliable FuncTerm where
     (FuncTerm ffs1) `mul` (FuncTerm ffs2) = FuncTerm $ glueLists connectFactors ffs1 ffs2
 
 
-glueLists :: (a -> a -> [a]) -> [a] -> [a] -> [a]
-glueLists connect l1 l2
-    | null l1 || null l2 = l1 ++ l2
-    | otherwise = init l1 ++ intersection ++ tail l2 where
-        intersection = connect (last l1) (head l2)
-
-connectFactors :: FuncFactor -> FuncFactor -> [FuncFactor]
-connectFactors (FuncProduct x) (FuncProduct y) = [FuncProduct (M.unionWith (+) x y)]
-connectFactors (DiffProduct x) (DiffProduct y) = [DiffProduct (M.unionWith (+) x y)]
-connectFactors x y = [x, y]
-
-connectTuples :: (Operator, Int) -> (Operator, Int) -> [(Operator, Int)]
-connectTuples (x1, y1) (x2, y2)
-    | x1 == x2 = [(x1, y1 + y2)]
-    | otherwise = [(x1, y1), (x2, y2)]
-
+-- Num instances
 
 instance Num Coefficient where
     negate (Coefficient x) = Coefficient (negate x)
@@ -181,10 +188,6 @@ instance Num Coefficient where
     fromInteger x = Coefficient (fromInteger x :: ComplexRational)
     abs = undefined
     signum = undefined
-
-instance Fractional Coefficient where
-    (Coefficient x) / (Coefficient y) = Coefficient (x / y)
-    fromRational x = Coefficient (fromRational x :: ComplexRational)
 
 instance (Term a, Ord a, Eq a, Show a, Multipliable a) => Num (Sum a) where
     negate (Sum ts) = Sum (M.map negate ts)
@@ -197,6 +200,13 @@ instance (Term a, Ord a, Eq a, Show a, Multipliable a) => Num (Sum a) where
     abs = undefined
     signum = undefined
 
+
+-- Fractional instances
+
+instance Fractional Coefficient where
+    (Coefficient x) / (Coefficient y) = Coefficient (x / y)
+    fromRational x = Coefficient (fromRational x :: ComplexRational)
+
 instance (Term a, Ord a, Eq a, Show a, Multipliable a) => Fractional (Sum a) where
     x / (Sum ts)
         | M.null ts  = error "Division by zero"
@@ -208,9 +218,19 @@ instance (Term a, Ord a, Eq a, Show a, Multipliable a) => Fractional (Sum a) whe
         | x == 0 = Sum M.empty
         | otherwise = Sum $ M.singleton identity (fromRational x :: Coefficient)
 
+
+-- ComplexNum instances
+
+class ComplexNum a where
+    fromComplexRational :: Complex Rational -> a
+
 instance Term a => ComplexNum (Sum a) where
     fromComplexRational x = Sum $ M.singleton identity (fromComplexRational x :: Coefficient)
 
+instance ComplexNum Coefficient where fromComplexRational = Coefficient
+
+
+-- Term instances
 
 class Term a where
     identity :: a
@@ -231,6 +251,9 @@ instance Term FuncTerm where
     fromFunction x = FuncTerm [FuncProduct (M.singleton x 1)]
     fromOperator x = error "Cannot create functional term from an operator"
     fromDifferential x = FuncTerm [DiffProduct (M.singleton x 1)]
+
+
+-- Auxiliary functions
 
 asSymmetric :: OpExpr -> OpExpr
 asSymmetric (Sum ts) = Sum $ M.mapKeys asSym ts where
@@ -264,6 +287,8 @@ splitOpTermCoeff (c, ot) = (f_expr * Sum (M.singleton identity c), opf) where
     (f_expr, opf) = splitOpTerm ot
 
 
+-- Factorisable instances
+
 class Factorisable a b where
     factors :: a -> [(b, Int)]
     factorsExpanded :: a -> [b]
@@ -272,6 +297,8 @@ class Factorisable a b where
 instance Factorisable (M.Map a Int) a where factors = M.assocs
 instance Factorisable [(a, Int)] a where factors = id
 
+
+-- Texable instances
 
 class Texable a => Superscriptable a where
     needsParentheses :: a -> Bool
@@ -288,16 +315,6 @@ instance Superscriptable Differential where
     needsParentheses _ = True
 
 
-instance Texable Symbol where
-    showTex (Symbol s) = s
-
-instance Texable Index where
-    showTex (IndexSymbol s) = showTex s
-    showTex (IndexInt s) = show s
-
-instance Texable Variable where
-    showTex (VariableSymbol s) = showTex s
-
 showTexIV :: [Index] -> [Variable] -> String
 showTexIV is vs = indices_str ++ variables_str where
     indices_str = case length is of
@@ -308,16 +325,29 @@ showTexIV is vs = indices_str ++ variables_str where
         then ""
         else "(" ++ unwords (map showTex vs) ++ ")"
 
-instance Texable Element where
-    showTex (Element s is vs) = showTex s ++ showTexIV is vs
-
 addPower :: Int -> String -> Bool -> String
 addPower 1 s need_parentheses = s
 addPower i s True = addPower i ("(" ++ s ++ ")") False
 addPower i s False = s ++ "^" ++ show i
 
+makeDiff :: String -> String -> String
 makeDiff diff_s s = "\\frac{" ++  diff_s ++ "}{" ++ diff_s ++ " " ++ s ++ "}"
+
+diffSymbol :: Element -> String
 diffSymbol (Element _ _ vs) = if null vs then "\\partial" else "\\delta"
+
+instance Texable Symbol where
+    showTex (Symbol s) = s
+
+instance Texable Index where
+    showTex (IndexSymbol s) = showTex s
+    showTex (IndexInt s) = show s
+
+instance Texable Variable where
+    showTex (VariableSymbol s) = showTex s
+
+instance Texable Element where
+    showTex (Element s is vs) = showTex s ++ showTexIV is vs
 
 instance Texable a => Texable [a] where
     showTex x = unwords (map showTex x)
@@ -365,16 +395,16 @@ instance (Term a, Texable a, Eq a) => Texable (Sum a) where
         | null ts = "0"
         | otherwise = showTexList ts where
             ts = terms s
-            showTexTuple explicit_plus (c, t)
-                | t == identity = showCoeff c True explicit_plus
-                | otherwise = showCoeff c False explicit_plus ++ " " ++ showTex t
-            showTexList (tc:[]) = showTexTuple False tc
-            showTexList (tc:tcs) = showTexList [tc] ++ " " ++
-                unwords (map (showTexTuple True) tcs)
+            positive (Coefficient (x :+ y)) = x > 0 || (x == 0 && y > 0)
             showCoeff c before_identity explicit_plus
                 | c == 1 && not before_identity = plus_str
                 | c == -1 && not before_identity = "-"
                 | positive c = plus_str ++ showTex c
                 | otherwise = showTex c where
                     plus_str = if explicit_plus then "+" else ""
-            positive (Coefficient (x :+ y)) = x > 0 || (x == 0 && y > 0)
+            showTexTuple explicit_plus (c, t)
+                | t == identity = showCoeff c True explicit_plus
+                | otherwise = showCoeff c False explicit_plus ++ " " ++ showTex t
+            showTexList (tc:[]) = showTexTuple False tc
+            showTexList (tc:tcs) = showTexList [tc] ++ " " ++
+                unwords (map (showTexTuple True) tcs)
