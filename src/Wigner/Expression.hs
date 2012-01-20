@@ -371,10 +371,10 @@ instance (Term a, Texable a, Eq a) => Texable (Sum a) where
             showTexList (tc:[]) = showTexTuple False tc
             showTexList (tc:tcs) = showTexList [tc] ++ " " ++
                 unwords (map (showTexTuple True) tcs)
-
-showCoeff (Coefficient (x :+ y)) before_identity explicit_plus
-    | x == 1 && y == 0 && not before_identity = plus_str
-    | x == -1 && y == 0 && not before_identity = "-"
-    | x > 0 || (x == 0 && y > 0) = plus_str ++ showTex (x :+ y)
-    | otherwise = showTex (x :+ y) where
-        plus_str = if explicit_plus then "+" else ""
+            showCoeff c before_identity explicit_plus
+                | c == 1 && not before_identity = plus_str
+                | c == -1 && not before_identity = "-"
+                | positive c = plus_str ++ showTex c
+                | otherwise = showTex c where
+                    plus_str = if explicit_plus then "+" else ""
+            positive (Coefficient (x :+ y)) = x > 0 || (x == 0 && y > 0)
