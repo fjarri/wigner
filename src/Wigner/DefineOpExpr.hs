@@ -3,12 +3,13 @@
 module Wigner.DefineOpExpr(
     operatorFuncIx, operatorFunc, operatorIx, operator,
     functionIx, function, constantIx, constant,
-    i, symmetric,
+    unit, i, symmetric,
     makeExpr) where
 
     import Wigner.Complex
     import Wigner.Expression
     import qualified Data.Map as M
+    import Data.Ratio
 
     operatorFuncIx s i v = Sum $ M.singleton op_term 1 where
         op = Op $ Element s i v
@@ -26,7 +27,8 @@ module Wigner.DefineOpExpr(
     constantIx s i = functionIx s i []
     constant s = functionIx s [] []
 
-    i = Sum $ M.singleton (identity :: OpTerm) (Coefficient (0 :+ 1 :: ComplexRational))
+    unit = Sum $ M.singleton (identity :: OpTerm) 1
+    i = unit * makeExpr (Coefficient (0 :+ 1 :: ComplexRational))
 
     symmetric :: OpExpr -> OpExpr
     symmetric (Sum ts) = Sum (M.mapKeys asSym ts) where
@@ -39,8 +41,10 @@ module Wigner.DefineOpExpr(
     class Expressable a where
         makeExpr :: a -> OpExpr
 
+    instance Expressable Function where
+        makeExpr x = makeExpr (M.singleton x (1 :: Int))
     instance Expressable FuncTerm where
-        makeExpr (FuncTerm []) = Sum $ M.singleton identity 1
+        makeExpr (FuncTerm []) = unit
         makeExpr (FuncTerm [FuncProduct fp]) = makeExpr fp
         makeExpr ft = error "Not implemented: conversion of non-function product to operator term"
     instance Expressable FuncExpr where
@@ -49,5 +53,6 @@ module Wigner.DefineOpExpr(
     instance Expressable OpFactor where makeExpr opf = makeExpr (OpTerm M.empty (Just opf))
     instance Expressable Operator where makeExpr op = makeExpr (NormalProduct [(op, 1)])
     instance Expressable Int where makeExpr x = fromInteger (fromIntegral x :: Integer) :: OpExpr
+    instance Expressable Rational where makeExpr x = fromRational x :: OpExpr
     instance Expressable (M.Map Function Int) where makeExpr fs = Sum $ M.singleton (OpTerm fs Nothing) 1
     instance Expressable Coefficient where makeExpr c = Sum $ M.singleton identity c
