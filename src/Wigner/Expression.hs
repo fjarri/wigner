@@ -370,20 +370,21 @@ instance Texable OpTerm where
 instance Texable FuncTerm where
     showTex (FuncTerm ffs) = showTex ffs
 
-instance (HasIdentity a, Texable a, Eq a) => Texable (Sum a) where
-    showTex (Sum ts)
-        | M.null ts = "0"
-        | otherwise = showTexList (M.assocs ts) where
-            showTexTuple explicit_plus (t, c)
-                | t == identity = showCoeff c explicit_plus
-                | otherwise = showCoeff c explicit_plus ++ " " ++ showTex t
+instance (Term a, Texable a, Eq a) => Texable (Sum a) where
+    showTex s
+        | null ts = "0"
+        | otherwise = showTexList ts where
+            ts = terms s
+            showTexTuple explicit_plus (c, t)
+                | t == identity = showCoeff c True explicit_plus
+                | otherwise = showCoeff c False explicit_plus ++ " " ++ showTex t
             showTexList (tc:[]) = showTexTuple False tc
             showTexList (tc:tcs) = showTexList [tc] ++ " " ++
                 unwords (map (showTexTuple True) tcs)
 
-showCoeff (Coefficient (x :+ y)) explicit_plus
-    | x == 1 && y == 0 = plus_str
-    | x == -1 && y == 0 = "-"
+showCoeff (Coefficient (x :+ y)) before_identity explicit_plus
+    | x == 1 && y == 0 && not before_identity = plus_str
+    | x == -1 && y == 0 && not before_identity = "-"
     | x > 0 || (x == 0 && y > 0) = plus_str ++ showTex (x :+ y)
     | otherwise = showTex (x :+ y) where
         plus_str = if explicit_plus then "+" else ""
