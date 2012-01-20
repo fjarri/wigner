@@ -37,12 +37,12 @@ test_symmetric_to_symmetric = (toSymmetricProduct bosonicCommutationRelation exp
 
 test_normal_to_symmetric = (toSymmetricProduct bosonicCommutationRelation expr) @?= result where
     expr = da1 * a1
-    result = DO.symmetric (da1 * a1) - DO.makeExpr (1 % 2 :: Rational)
+    result = DO.symmetric (da1 * a1) - DO.one / 2
 
 test_normal_to_symmetric_2 = (toSymmetricProduct bosonicCommutationRelation expr) @?= result where
     expr = da1 * da1 * a1 * a1
     result = DO.symmetric (da1 * da1 * a1 * a1) -
-        2 * DO.symmetric (da1 * a1) + DO.makeExpr (1 % 2 :: Rational)
+        2 * DO.symmetric (da1 * a1) + DO.one / 2
 
 test_normal_to_symmetric_3 = (toSymmetricProduct bosonicCommutationRelation expr) @?= result where
     expr = da1 * a1 * da1 * a1

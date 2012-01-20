@@ -7,10 +7,9 @@ module Wigner.OperatorAlgebra where
     import Wigner.Expression
 
     delta = S.delta
-    zeroExpr = fromInteger 0 :: OpExpr
 
     differences :: Eq a => [a] -> [a] -> [(a, a)]
-    differences x y = filter (\(u, v) -> (u /= v)) (zip x y)
+    differences x y = filter (uncurry (/=)) (zip x y)
 
     makeIndexDelta :: (Index, Index) -> Function
     makeIndexDelta (x, y) = Func (Element delta (L.sort [x, y]) [])
@@ -23,7 +22,7 @@ module Wigner.OperatorAlgebra where
 
     makeDeltas :: Element -> Element -> [Function]
     makeDeltas (Element s1 i1 v1) (Element s2 i2 v2) =
-        (map makeIndexDelta indices_diff) ++ (map makeVariableDelta variables_diff) where
+        map makeIndexDelta indices_diff ++ map makeVariableDelta variables_diff where
             indices_diff = differences i1 i2
             variables_diff = differences v1 v2
 
@@ -33,11 +32,11 @@ module Wigner.OperatorAlgebra where
     type CommutationRelation = Operator -> Operator -> OpExpr
 
     bosonicCommutationRelation :: CommutationRelation
-    bosonicCommutationRelation (Op x) (Op y) = zeroExpr
-    bosonicCommutationRelation (DaggerOp x) (DaggerOp y) = zeroExpr
+    bosonicCommutationRelation (Op x) (Op y) = DO.zero
+    bosonicCommutationRelation (DaggerOp x) (DaggerOp y) = DO.zero
     bosonicCommutationRelation (Op x) (DaggerOp y) = if sameSymbol x y
         then DO.makeExpr $ M.fromList $ collapseProduct (makeDeltas x y)
-        else zeroExpr
+        else DO.zero
     bosonicCommutationRelation (DaggerOp x) (Op y) = - bosonicCommutationRelation (Op x) (DaggerOp y)
 
 
@@ -46,7 +45,7 @@ module Wigner.OperatorAlgebra where
         termToNP (OpTerm fs (Just opf), c) = opFactorToNP opf * DO.makeExpr fs * DO.makeExpr c
 
         opFactorToNP (opf@(NormalProduct ops)) = DO.makeExpr opf -- mulTuples ops
-        opFactorToNP (SymmetricProduct ops) = (sum $ map (product . (map DO.makeExpr)) pms) / pm_num where
+        opFactorToNP (SymmetricProduct ops) = sum (map (product . map DO.makeExpr) pms) / pm_num where
             pms = L.permutations (expandProduct (M.assocs ops))
             pm_num = DO.makeExpr (length pms)
 
@@ -75,7 +74,7 @@ module Wigner.OperatorAlgebra where
             (swapped, coeff, lo) = swapOnFirstEncounter comm target_op (op2:ops)
 
     swapDifferent :: CommutationRelation -> [Operator] -> [Operator] -> ([Operator], OpExpr, [Operator])
-    swapDifferent comm [] [] = ([], zeroExpr, [])
+    swapDifferent comm [] [] = ([], DO.zero, [])
     swapDifferent comm (op1:ops1) (op2:ops2)
         | op1 == op2 = (op2:swapped, coeff, op2:lo)
         -- two lists are supposed to contain the same set of elements,
@@ -87,14 +86,14 @@ module Wigner.OperatorAlgebra where
     permuteTerm :: CommutationRelation -> [Operator] -> [Operator] -> OpExpr
     permuteTerm comm target ops
 --        | (not $ (null (target L.\\ ops))) = error (show target ++ "\n" ++ show ops)
-        | target == ops = zeroExpr
-        | otherwise = (permuteTerm comm target swapped) +
+        | target == ops = DO.zero
+        | otherwise = permuteTerm comm target swapped +
             coeff * DO.makeExpr (NormalProduct $ collapseProduct lo) where
             (swapped, coeff, lo) = swapDifferent comm target ops
 
     opFactorToSP :: CommutationRelation -> OpFactor -> OpExpr
     opFactorToSP comm (opf@(SymmetricProduct ops)) = DO.makeExpr opf
-    opFactorToSP comm (NormalProduct []) = DO.unit
+    opFactorToSP comm (NormalProduct []) = DO.one
     opFactorToSP comm (opf@(NormalProduct [op])) = DO.symmetric (DO.makeExpr opf)
     opFactorToSP comm (opf@(NormalProduct ops)) = same_order - lower_part where
         same_order = DO.symmetric (DO.makeExpr opf)
@@ -104,7 +103,7 @@ module Wigner.OperatorAlgebra where
         expand (term, c) = (expandProduct (extractOps term), c)
         expanded_terms = map expand (terms from_symm) -- [([Operator], Int)]
 
-        lowerPartForTerm (ops, c) = (DO.makeExpr c) * (permuteTerm comm expanded_target ops)
+        lowerPartForTerm (ops, c) = DO.makeExpr c * permuteTerm comm expanded_target ops
         lower_part_normal = sum $ map lowerPartForTerm expanded_terms
 
         lower_part = toSymmetricProduct comm lower_part_normal
