@@ -11,6 +11,7 @@ import qualified Data.List as L
 import qualified Wigner.DefineExpression as D
 import qualified Wigner.Symbols as S
 import Wigner.Expression
+import Wigner.ExpressionHelpers
 
 delta = S.delta
 
@@ -44,11 +45,6 @@ bosonicCommutationRelation (Op x) (DaggerOp y) = if sameSymbol x y
     then makeDeltas x y
     else D.zero
 bosonicCommutationRelation (DaggerOp x) (Op y) = - bosonicCommutationRelation (Op x) (DaggerOp y)
-
-mapOpFactors :: (OpFactor -> Expr) -> Expr -> Expr
-mapOpFactors f (Expr s) = sum (map (\(c, t) -> makeExpr c * processTerm t) (terms s)) where
-    processTerm (Term Nothing fs) = makeExpr fs
-    processTerm (Term (Just opf) fs) = makeExpr fs * f opf
 
 -- Transform all operator products in the expression to normal products
 toNormalProduct :: Expr -> Expr

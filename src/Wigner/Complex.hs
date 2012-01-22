@@ -1,4 +1,5 @@
-module Wigner.Complex (Complex((:+)), conjugate, ComplexValued) where
+module Wigner.Complex (
+    Complex((:+)), conjugate, ComplexValued, ComplexNum, fromComplexRational) where
 
 import Data.Ratio
 import Wigner.Texable
@@ -23,6 +24,10 @@ instance (Fractional a) => Fractional (Complex a) where
     (x1 :+ y1) / (x2 :+ y2) = ((x1 * x2 + y1 * y2) / m) :+ ((x1 * y2 - y1 * x2) / m) where
         m = x2 * x2 + y2 * y2
     fromRational x = fromRational x :+ fromRational 0
+
+class ComplexNum a where
+    fromComplexRational :: Complex Rational -> a
+
 
 instance (Texable a, Ord a, Num a) => Texable (Complex a) where
     showTex (x :+ y)

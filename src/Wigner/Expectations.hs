@@ -10,6 +10,7 @@ import qualified Wigner.DefineExpression as D
 import qualified Wigner.Symbols as S
 import Wigner.OperatorAlgebra
 import Wigner.Expression
+import Wigner.ExpressionHelpers
 
 
 type TargetFormConverter = Expr -> Expr
@@ -29,21 +30,6 @@ expectation expr = mapOpFactors toExpectation expr where
 
 evaluateExpectations :: TargetFormConverter -> S.SymbolCorrespondence -> Expr -> Expr
 evaluateExpectations tfc sc = (replaceExpectations sc) . (applyConverter tfc)
-
-
-mapOpFactors :: (OpFactor -> Expr) -> Expr -> Expr
-mapOpFactors f (Expr s) = sum (map (\(c, t) -> makeExpr c * processTerm t) (terms s)) where
-    processTerm (Term Nothing fs) = makeExpr fs
-    processTerm (Term (Just opf) fs) = makeExpr fs * f opf
-
-mapFuncGroups :: (FuncGroup -> Expr) -> Expr -> Expr
-mapFuncGroups f (Expr s) = sum (map (\(c, t) -> makeExpr c * processTerm t) (terms s)) where
-    processTerm (Term opf fs) = product (map f fs) * makeExpr opf
-
-mapFuncFactors :: (FuncFactor -> Expr) -> Expr -> Expr
-mapFuncFactors f expr = mapFuncGroups processGroup expr where
-    processGroup (FuncProduct ffs) = product (map f (factorsExpanded ffs))
-    processGroup x = makeExpr x
 
 -- Applies converter to all operator products inside expectations
 applyConverter :: TargetFormConverter -> Expr -> Expr

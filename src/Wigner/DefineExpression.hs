@@ -10,6 +10,7 @@ module Wigner.DefineExpression(
 
 import Wigner.Complex
 import Wigner.Expression
+import Wigner.ExpressionHelpers
 import Data.Ratio
 
 operatorFuncIx :: Symbol -> [Index] -> [Function] -> Expr
@@ -39,7 +40,6 @@ one = 1 :: Expr
 i = makeExpr (0 :+ 1 :: Complex Rational)
 
 symmetric :: Expr -> Expr
-symmetric (Expr s) = Expr (mapTerms asSym s) where
-    asSym (Term (Just (NormalProduct ops)) fs) =
-        Term (Just (SymmetricProduct (fromFactors (factors ops)))) fs
-    asSym t = t
+symmetric expr = mapOpFactors asSym expr where
+    asSym (NormalProduct ops) = makeExpr $ SymmetricProduct (fromFactors (factors ops))
+    asSym opf = makeExpr opf

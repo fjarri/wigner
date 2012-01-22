@@ -12,8 +12,10 @@ module Wigner.Expression(
     OpFactor(..),
     FuncFactor(..),
     FuncGroup(..),
-    makeExpr,
-    terms, mapTerms,
+    Coefficient(..),
+    terms, fromTerms,
+    identityTerm,
+    fromCoeff,
     dagger,
     factors, factorsExpanded, fromFactors, fromFactorsExpanded
     ) where
@@ -64,7 +66,6 @@ class Sum a where
     fromTerms :: [(Coefficient, Term)] -> a
     mapTermPairs :: ((Coefficient, Term) -> (Coefficient, Term)) -> a -> a
     mapCoefficients :: (Coefficient -> Coefficient) -> a -> a
-    mapTerms :: (Term -> Term) -> a -> a
     zeroSum :: a
     unitSum :: a
     empty :: a -> Bool
@@ -79,7 +80,6 @@ class Sum a where
 instance Sum (SortedSum Term) where
     terms x = map T.swap (M.assocs x)
     fromTerms x = M.filter (/= 0) (M.fromListWith (+) (map T.swap x))
-    mapTerms = M.mapKeysWith (+)
     mapCoefficients = M.map
 
 
@@ -246,9 +246,6 @@ instance Fractional Expr where
 
 -- ComplexNum instances
 
-class ComplexNum a where
-    fromComplexRational :: Complex Rational -> a
-
 instance ComplexNum Expr where
     fromComplexRational x
         | x == 0 = Expr zeroSum
@@ -256,44 +253,6 @@ instance ComplexNum Expr where
 
 instance ComplexNum Coefficient where fromComplexRational = Coefficient
 
-
--- Auxiliary functions
-
-exprFromTerm t = Expr (fromTerms [(fromInteger 1 :: Coefficient, t)])
-productFromFactor f = fromFactors [(f, 1)]
-
-class Expressable a where
-    makeExpr :: a -> Expr
-
-instance Expressable Int where makeExpr x = fromInteger (fromIntegral x :: Integer) :: Expr
-instance Expressable Rational where makeExpr x = fromRational x :: Expr
-instance Expressable (Complex Rational) where makeExpr x = fromComplexRational x :: Expr
-instance Expressable Coefficient where makeExpr x = Expr (fromCoeff x)
-instance Expressable Differential where
-    makeExpr x = exprFromTerm term where
-        term = Term Nothing [diff_product]
-        diff_product = DiffProduct (productFromFactor x)
-instance Expressable Function where
-     makeExpr x = exprFromTerm term where
-        term = Term Nothing [func_product]
-        func_product = FuncProduct (productFromFactor (Factor x))
-instance Expressable Operator where
-    makeExpr x = exprFromTerm term where
-        term = Term (Just op_product) []
-        op_product = NormalProduct (productFromFactor x)
-instance Expressable OpFactor where
-    makeExpr x = exprFromTerm (Term (Just x) [])
-instance Expressable (Maybe OpFactor) where
-    makeExpr Nothing = exprFromTerm (identityTerm)
-    makeExpr (Just x) = makeExpr x
-instance Expressable FuncGroup where
-    makeExpr x = makeExpr [x]
-instance Expressable [FuncGroup] where
-    makeExpr x = exprFromTerm (Term Nothing x)
-instance Expressable Term where
-    makeExpr x = exprFromTerm x
-instance Expressable FuncFactor where
-    makeExpr x = exprFromTerm (Term Nothing [FuncProduct (productFromFactor x)])
 
 -- Texable instances
 
