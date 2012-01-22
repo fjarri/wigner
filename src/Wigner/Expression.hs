@@ -271,7 +271,7 @@ instance Superscriptable Differential where
     needsParentheses _ = True
 instance Superscriptable FuncFactor where
     needsParentheses (Factor f) = needsParentheses f
-    needsParentheses _ = True
+    needsParentheses _ = False
 
 showTexIV :: [Index] -> [Function] -> String
 showTexIV is vs = indices_str ++ variables_str where
@@ -364,5 +364,5 @@ instance Texable Expr where
                 | t == identityTerm = showCoeff c True explicit_plus
                 | otherwise = showCoeff c False explicit_plus ++ " " ++ showTex t
             showTexList (tc:[]) = showTexTuple False tc
-            showTexList (tc:tcs) = showTexList [tc] ++ " " ++
-                unwords (map (showTexTuple True) tcs)
+            showTexList (tc:tcs) = showTexList [tc] ++ "\n" ++
+                unlines (map (showTexTuple True) tcs)
