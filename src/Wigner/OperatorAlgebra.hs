@@ -48,17 +48,17 @@ bosonicCommutationRelation (DaggerOp x) (Op y) = - bosonicCommutationRelation (O
 
 -- Transform all operator products in the expression to normal products
 toNormalProduct :: Expr -> Expr
-toNormalProduct expr = mapOpFactors factorToNP expr where
+toNormalProduct = mapOpFactors factorToNP where
     -- By definition: sum of all normal products made of permutations of the operators
     -- divided by the number of permutations.
-    factorToNP (SymmetricProduct ops) = sum (map (product . (map makeExpr)) pms) / pm_num where
+    factorToNP (SymmetricProduct ops) = sum (map (product . map makeExpr) pms) / pm_num where
         pms = L.permutations (factorsExpanded ops)
         pm_num = makeExpr (length pms)
     factorToNP opf = makeExpr opf
 
 -- Transform all operator products in the expression to symmetric products
 toSymmetricProduct :: CommutationRelation -> Expr -> Expr
-toSymmetricProduct comm expr = mapOpFactors (factorToSP comm) expr where
+toSymmetricProduct comm = mapOpFactors (factorToSP comm) where
     factorToSP comm (NormalProduct ops) = opsToSP comm (factorsExpanded ops)
     factorToSP comm opf = makeExpr opf
 

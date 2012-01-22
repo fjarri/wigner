@@ -39,7 +39,9 @@ zero = 0 :: Expr
 one = 1 :: Expr
 i = makeExpr (0 :+ 1 :: Complex Rational)
 
+-- Changes all NormalProducts to Symmetric ones (without changing anything inside).
+-- Use if you want to define symmetric product.
 symmetric :: Expr -> Expr
-symmetric expr = mapOpFactors asSym expr where
+symmetric = mapOpFactors asSym where
     asSym (NormalProduct ops) = makeExpr $ SymmetricProduct (fromFactors (factors ops))
     asSym opf = makeExpr opf

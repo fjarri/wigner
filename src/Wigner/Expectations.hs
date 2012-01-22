@@ -19,27 +19,26 @@ wignerExpectation = toSymmetricProduct bosonicCommutationRelation
 
 variance :: Expr -> Expr -> Expr
 variance x y = (expectation (x * y) + expectation (y * x) -
-    2 * (expectation x) * (expectation y)) / 2
+    2 * expectation x * expectation y) / 2
 
 deltaSquared :: Expr -> Expr
 deltaSquared x = variance x x
 
 expectation :: Expr -> Expr
-expectation expr = mapOpFactors toExpectation expr where
-    toExpectation opf = makeExpr (OpExpectation opf)
+expectation = mapOpFactors (makeExpr . OpExpectation) where
 
 evaluateExpectations :: TargetFormConverter -> S.SymbolCorrespondence -> Expr -> Expr
-evaluateExpectations tfc sc = (replaceExpectations sc) . (applyConverter tfc)
+evaluateExpectations tfc sc = replaceExpectations sc . applyConverter tfc
 
 -- Applies converter to all operator products inside expectations
 applyConverter :: TargetFormConverter -> Expr -> Expr
-applyConverter tfc expr = mapFuncFactors convert expr where
+applyConverter tfc = mapFuncFactors convert where
     convert (OpExpectation opf) = expectation (tfc (makeExpr opf))
     convert x = makeExpr x
 
 -- Replaces OpExpectations with FuncExpectations
 replaceExpectations ::S.SymbolCorrespondence -> Expr -> Expr
-replaceExpectations sc expr = mapFuncFactors convert expr where
+replaceExpectations sc = mapFuncFactors convert where
     convert (OpExpectation opf) = makeExpr (FuncExpectation (processFactor opf))
     convert x = makeExpr x
     replaceOperators ops = fromFactorsExpanded (map (opToFunc sc) (factorsExpanded ops))
@@ -49,7 +48,7 @@ replaceExpectations sc expr = mapFuncFactors convert expr where
     opToFunc sc (DaggerOp e) = ConjFunc (S.mapElementWith sc e)
 
 asExpectation :: Expr -> Expr
-asExpectation expr = mapFuncGroups processGroup expr where
+asExpectation = mapFuncGroups processGroup where
     processGroup (DiffProduct _) = error "Not implemented: differentials inside expectation"
     processGroup (FuncProduct ffs) = makeExpr (FuncExpectation (fromFactorsExpanded
         (map processFactor (factorsExpanded ffs))))

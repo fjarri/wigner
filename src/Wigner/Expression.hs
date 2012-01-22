@@ -74,7 +74,7 @@ class Sum a where
     mapTermPairs f x = fromTerms (map f (terms x))
     empty x = null (terms x)
     zeroSum = fromTerms []
-    unitSum = fromTerms [(fromInteger 1 :: Coefficient, identityTerm)]
+    unitSum = fromTerms [(1 :: Coefficient, identityTerm)]
     fromCoeff c = fromTerms [(c, identityTerm)]
 
 instance Sum (SortedSum Term) where
@@ -186,7 +186,7 @@ mulOpFactors :: Maybe OpFactor -> Maybe OpFactor -> Maybe OpFactor
 mulOpFactors Nothing Nothing = Nothing
 mulOpFactors (Just x) Nothing = Just x
 mulOpFactors Nothing (Just x) = Just x
-mulOpFactors (Just (NormalProduct x)) (Just (NormalProduct y)) = Just (NormalProduct $ op_list) where
+mulOpFactors (Just (NormalProduct x)) (Just (NormalProduct y)) = Just (NormalProduct op_list) where
     op_list = fromFactors (factors x ++ factors y)
 mulOpFactors _ _ = error "Not implemented: multiplication with symmetric products"
 
