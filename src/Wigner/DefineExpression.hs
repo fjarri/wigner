@@ -4,7 +4,8 @@ module Wigner.DefineExpression(
     operatorFuncIx, operatorFunc, operatorIx, operator,
     functionIx, function, constantIx, constant,
     differentialFuncIx, differentialIx, differential,
-    zero, one, i
+    zero, one, i,
+    symmetric
     ) where
 
 import Wigner.Complex
@@ -37,3 +38,8 @@ zero = 0 :: Expr
 one = 1 :: Expr
 i = makeExpr (0 :+ 1 :: Complex Rational)
 
+symmetric :: Expr -> Expr
+symmetric (Expr s) = Expr (mapTerms asSym s) where
+    asSym (Term (Just (NormalProduct ops)) fs) =
+        Term (Just (SymmetricProduct (fromFactors (factors ops)))) fs
+    asSym t = t

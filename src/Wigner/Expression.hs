@@ -13,7 +13,10 @@ module Wigner.Expression(
     FuncFactor(..),
     Coefficient(..),
     makeExpr,
-    dagger
+    terms, mapTerms,
+    dagger,
+    factors, factorsExpanded, fromFactors,
+    productFromFactor
     ) where
 
 import Wigner.Complex
@@ -266,18 +269,27 @@ class Expressable a where
 instance Expressable Int where makeExpr x = fromInteger (fromIntegral x :: Integer) :: Expr
 instance Expressable Rational where makeExpr x = fromRational x :: Expr
 instance Expressable (Complex Rational) where makeExpr x = fromComplexRational x :: Expr
+instance Expressable Coefficient where makeExpr x = Expr (fromCoeff x)
 instance Expressable Differential where
     makeExpr x = exprFromTerm term where
         term = Term Nothing [diff_product]
         diff_product = DiffProduct (productFromFactor x)
 instance Expressable Function where
      makeExpr x = exprFromTerm term where
-         term = Term Nothing [func_product]
-         func_product = FuncProduct (productFromFactor (Factor x))
+        term = Term Nothing [func_product]
+        func_product = FuncProduct (productFromFactor (Factor x))
 instance Expressable Operator where
-     makeExpr x = exprFromTerm term where
-         term = Term (Just op_product) []
-         op_product = NormalProduct (productFromFactor x)
+    makeExpr x = exprFromTerm term where
+        term = Term (Just op_product) []
+        op_product = NormalProduct (productFromFactor x)
+instance Expressable OpFactor where
+    makeExpr x = exprFromTerm (Term (Just x) [])
+instance Expressable FuncGroup where
+    makeExpr x = makeExpr [x]
+instance Expressable [FuncGroup] where
+    makeExpr x = exprFromTerm (Term Nothing x)
+instance Expressable Term where
+    makeExpr x = exprFromTerm x
 
 --instance Expressable Operator where makeExpr = toExpr . fromOperator
 --instance Expressable Function where makeExpr = toExpr . fromFunction
@@ -285,12 +297,6 @@ instance Expressable Operator where
 --instance Expressable Coefficient where makeExpr x = fromTerms [(x, identity)]
 
 {-
-asSymmetric :: OpExpr -> OpExpr
-asSymmetric (Sum ts) = Sum $ M.mapKeys asSym ts where
-    asSym (OpTerm fs Nothing) = OpTerm fs Nothing
-    asSym (OpTerm fs (Just (NormalProduct ops))) =
-        OpTerm fs (Just (SymmetricProduct (M.fromListWith (+) ops)))
-    asSym (OpTerm fs (Just (SymmetricProduct ops))) = OpTerm fs (Just (SymmetricProduct ops))
 
 wrapWithExpectation :: OpFactor -> FuncTerm
 wrapWithExpectation opf = FuncTerm [OpExpectation opf]
