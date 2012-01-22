@@ -11,12 +11,11 @@ module Wigner.Expression(
     Term(..),
     OpFactor(..),
     FuncFactor(..),
-    Coefficient(..),
+    FuncGroup(..),
     makeExpr,
     terms, mapTerms,
     dagger,
-    factors, factorsExpanded, fromFactors,
-    productFromFactor
+    factors, factorsExpanded, fromFactors, fromFactorsExpanded
     ) where
 
 import Wigner.Complex
@@ -284,44 +283,17 @@ instance Expressable Operator where
         op_product = NormalProduct (productFromFactor x)
 instance Expressable OpFactor where
     makeExpr x = exprFromTerm (Term (Just x) [])
+instance Expressable (Maybe OpFactor) where
+    makeExpr Nothing = exprFromTerm (identityTerm)
+    makeExpr (Just x) = makeExpr x
 instance Expressable FuncGroup where
     makeExpr x = makeExpr [x]
 instance Expressable [FuncGroup] where
     makeExpr x = exprFromTerm (Term Nothing x)
 instance Expressable Term where
     makeExpr x = exprFromTerm x
-
---instance Expressable Operator where makeExpr = toExpr . fromOperator
---instance Expressable Function where makeExpr = toExpr . fromFunction
---instance Expressable OpFactor where makeExpr x = toExpr (OpTerm M.empty (Just x))
---instance Expressable Coefficient where makeExpr x = fromTerms [(x, identity)]
-
-{-
-
-wrapWithExpectation :: OpFactor -> FuncTerm
-wrapWithExpectation opf = FuncTerm [OpExpectation opf]
-
-splitFuncTerm :: FuncTerm -> [FuncFactor]
-splitFuncTerm (FuncTerm fs) = fs
-
-splitOpTerm :: OpTerm -> (OpExpr, Maybe OpFactor)
-splitOpTerm (ot@(OpTerm fs Nothing)) = (toExpr ot, Nothing)
-splitOpTerm (OpTerm fs opf) = (toExpr (OpTerm fs Nothing), opf)
-
-splitOpTermFunc :: OpTerm -> (FuncExpr, Maybe OpFactor)
-splitOpTermFunc (OpTerm fs opf)
-    | M.null fs = (toExpr (FuncTerm []), opf)
-    | otherwise = (toExpr (FuncTerm [FuncProduct fs]), opf)
-
-splitOpTermCoeff :: (Coefficient, OpTerm) -> (OpExpr, Maybe OpFactor)
-splitOpTermCoeff (c, ot) = (f_expr * Sum (M.singleton identity c), opf) where
-    (f_expr, opf) = splitOpTerm ot
-
-splitOpTermCoeffFunc :: (Coefficient, OpTerm) -> (FuncExpr, Maybe OpFactor)
-splitOpTermCoeffFunc (c, ot) = (f_expr * Sum (M.singleton identity c), opf) where
-    (f_expr, opf) = splitOpTermFunc ot
--}
-
+instance Expressable FuncFactor where
+    makeExpr x = exprFromTerm (Term Nothing [FuncProduct (productFromFactor x)])
 
 -- Texable instances
 

@@ -6,6 +6,11 @@ import Wigner.Complex
 import Wigner.Texable
 import Wigner.Expression
 
+import qualified Wigner.Symbols as S
+import qualified Wigner.DefineOpExpr as DO
+import qualified Wigner.DefineFuncExpr as DF
+import qualified Wigner.Expectations as E
+
 a1 = DO.operatorIx S.a [S.ix_1]
 a2 = DO.operatorIx S.a [S.ix_2]
 b1 = DO.operatorIx S.b [S.ix_1]
@@ -61,3 +66,5 @@ main = do
 --    putStrLn $ show jCZ
     putStrLn $ showTex jCZ
     putStrLn ""
+
+    putStrLn $ showTex (DO.one)

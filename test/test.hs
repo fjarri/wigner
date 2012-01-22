@@ -4,12 +4,12 @@ import Test.HUnit
 
 import TestArithmetic
 import TestOperators
---import TestExpectations
+import TestExpectations
 
 tests = [
     TestArithmetic.test_group,
-    TestOperators.test_group
---    TestExpectations.test_group
+    TestOperators.test_group,
+    TestExpectations.test_group
     ]
 
 main = defaultMain tests

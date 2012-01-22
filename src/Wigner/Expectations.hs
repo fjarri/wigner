@@ -1,71 +1,71 @@
 module Wigner.Expectations(
     expectation, variance, deltaSquared,
     wignerExpectation,
-    evaluateExpectations
+    evaluateExpectations,
+    asExpectation
     ) where
 
-import qualified Data.Map as M
 import qualified Data.List as L
-import qualified Wigner.DefineOpExpr as DO
-import qualified Wigner.DefineFuncExpr as DF
+import qualified Wigner.DefineExpression as D
 import qualified Wigner.Symbols as S
 import Wigner.OperatorAlgebra
 import Wigner.Expression
 
 
-type TargetFormConverter = OpExpr -> OpExpr
+type TargetFormConverter = Expr -> Expr
 wignerExpectation = toSymmetricProduct bosonicCommutationRelation
 
 
-variance :: OpExpr -> OpExpr -> FuncExpr
+variance :: Expr -> Expr -> Expr
 variance x y = (expectation (x * y) + expectation (y * x) -
     2 * (expectation x) * (expectation y)) / 2
 
-deltaSquared :: OpExpr -> FuncExpr
+deltaSquared :: Expr -> Expr
 deltaSquared x = variance x x
 
-expectation :: OpExpr -> FuncExpr
-expectation expr = sum (map (toExpectation . splitOpTermCoeffFunc) (terms expr)) where
-    toExpectation (f, Nothing) = f
-    toExpectation (f, Just opf) = f * (toExpr (wrapWithExpectation opf))
+expectation :: Expr -> Expr
+expectation expr = mapOpFactors toExpectation expr where
+    toExpectation opf = makeExpr (OpExpectation opf)
 
-evaluateExpectations :: TargetFormConverter -> S.SymbolCorrespondence -> FuncExpr -> FuncExpr
+evaluateExpectations :: TargetFormConverter -> S.SymbolCorrespondence -> Expr -> Expr
 evaluateExpectations tfc sc = (replaceExpectations sc) . (applyConverter tfc)
 
--- Applies converter to all operator products inside expectations
-applyConverter :: TargetFormConverter -> FuncExpr -> FuncExpr
-applyConverter tfc expr = result where
-    ts = terms expr
-    (coeffs, tms) = unzip ts
-    factors = map splitFuncTerm tms
-    exprs = map (map (convertOpExpectation tfc)) factors
-    exprs2 = map product exprs
-    exprs3 = zip coeffs exprs2
-    result = sum (map (\(c, x) -> DF.makeExpr c * x) exprs3)
 
-convertOpExpectation :: TargetFormConverter -> FuncFactor -> FuncExpr
-convertOpExpectation tfc (OpExpectation opf) = expectation (tfc (DO.makeExpr opf))
-convertOpExpectation tfc ff = DF.makeExpr ff
+mapOpFactors :: (OpFactor -> Expr) -> Expr -> Expr
+mapOpFactors f (Expr s) = sum (map (\(c, t) -> makeExpr c * processTerm t) (terms s)) where
+    processTerm (Term Nothing fs) = makeExpr fs
+    processTerm (Term (Just opf) fs) = makeExpr fs * f opf
+
+mapFuncGroups :: (FuncGroup -> Expr) -> Expr -> Expr
+mapFuncGroups f (Expr s) = sum (map (\(c, t) -> makeExpr c * processTerm t) (terms s)) where
+    processTerm (Term opf fs) = product (map f fs) * makeExpr opf
+
+mapFuncFactors :: (FuncFactor -> Expr) -> Expr -> Expr
+mapFuncFactors f expr = mapFuncGroups processGroup expr where
+    processGroup (FuncProduct ffs) = product (map f (factorsExpanded ffs))
+    processGroup x = makeExpr x
+
+-- Applies converter to all operator products inside expectations
+applyConverter :: TargetFormConverter -> Expr -> Expr
+applyConverter tfc expr = mapFuncFactors convert expr where
+    convert (OpExpectation opf) = expectation (tfc (makeExpr opf))
+    convert x = makeExpr x
 
 -- Replaces OpExpectations with FuncExpectations
-replaceExpectations ::S.SymbolCorrespondence -> FuncExpr -> FuncExpr
-replaceExpectations sc expr = result where
-    ts = terms expr -- [(Coefficient, FuncTerm)]
-    (coeffs, tms) = unzip ts
-    factors = map splitFuncTerm tms -- [[FuncFactor]]
-    exprs = map (map (DF.makeExpr . (replaceOpExpectation sc))) factors -- [[FuncFactor]]
-    exprs2 = map product exprs
-    exprs3 = zip coeffs exprs2
-    result = sum (map (\(c, x) -> DF.makeExpr c * x) exprs3)
+replaceExpectations ::S.SymbolCorrespondence -> Expr -> Expr
+replaceExpectations sc expr = mapFuncFactors convert expr where
+    convert (OpExpectation opf) = makeExpr (FuncExpectation (processFactor opf))
+    convert x = makeExpr x
+    replaceOperators ops = fromFactorsExpanded (map (opToFunc sc) (factorsExpanded ops))
+    processFactor (NormalProduct ops) = replaceOperators ops
+    processFactor (SymmetricProduct ops) = replaceOperators ops
+    opToFunc sc (Op e) = Func (S.mapElementWith sc e)
+    opToFunc sc (DaggerOp e) = ConjFunc (S.mapElementWith sc e)
 
-replaceOpExpectation :: S.SymbolCorrespondence -> FuncFactor -> FuncFactor
-replaceOpExpectation sc (OpExpectation (NormalProduct opf)) =
-    FuncExpectation (fromFactorsExpanded (replaceOperators sc (factorsExpanded opf)))
-replaceOpExpectation sc (OpExpectation (SymmetricProduct opf)) =
-    FuncExpectation (fromFactorsExpanded (replaceOperators sc (factorsExpanded opf)))
-replaceOpExpectation sc ff = ff
-
-replaceOperators :: S.SymbolCorrespondence -> [Operator] -> [Function]
-replaceOperators sc ops = map opToFunc ops where
-    opToFunc (Op e) = Func (S.mapElementWith sc e)
-    opToFunc (DaggerOp e) = ConjFunc (S.mapElementWith sc e)
+asExpectation :: Expr -> Expr
+asExpectation expr = mapFuncGroups processGroup expr where
+    processGroup (DiffProduct _) = error "Not implemented: differentials inside expectation"
+    processGroup (FuncProduct ffs) = makeExpr (FuncExpectation (fromFactorsExpanded
+        (map processFactor (factorsExpanded ffs))))
+    processFactor (Factor f) = f
+    processFactor _ = error "Not implemented: expectations of expectations"
