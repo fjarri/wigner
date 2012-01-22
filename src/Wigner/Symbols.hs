@@ -4,7 +4,9 @@ module Wigner.Symbols(
     var_x, var_x',
     alpha, beta, delta, rho, theta,
     symbol, index, variable,
-    mapElement, mapElementWith
+    mapElement, mapElementWith,
+    default_map,
+    SymbolCorrespondence
     ) where
 
 import Data.Map as M
@@ -48,9 +50,10 @@ ix_2 = index (2 :: Int)
 var_x = variable x
 var_x' = variable x'
 
+type SymbolCorrespondence = M.Map Symbol Symbol
 default_map = fromList [(a, alpha), (b, beta)]
 
-mapElementWith :: M.Map Symbol Symbol -> Element -> Element
+mapElementWith :: SymbolCorrespondence -> Element -> Element
 mapElementWith sym_map (Element s i v) = Element (fromJust (M.lookup s sym_map)) i v where
     error_msg = "Symbol was not found in correspondence map"
 

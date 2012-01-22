@@ -54,7 +54,7 @@ test_normal_to_symmetric_4 = (toSymmetricProduct bosonicCommutationRelation expr
     daj = dagger aj
     dal = dagger al
     [delta_kl, delta_lm, delta_jm, delta_jk] =
-        map (DO.makeExpr . makeIndexDelta) [(k, l), (l, m), (j, m), (j, k)]
+        map makeIndexDelta [(k, l), (l, m), (j, m), (j, k)]
 
     expr = daj * ak * dal * am
     result = asSymmetric (daj * dal * ak * am +

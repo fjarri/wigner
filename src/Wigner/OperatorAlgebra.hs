@@ -17,18 +17,21 @@ delta = S.delta
 differences :: Eq a => [a] -> [a] -> [(a, a)]
 differences x y = filter (uncurry (/=)) (zip x y)
 
-makeIndexDelta :: (Index, Index) -> Function
-makeIndexDelta (x, y) = Func (Element delta (L.sort [x, y]) [])
+makeIndexDelta :: (Index, Index) -> OpExpr
+makeIndexDelta (IndexInt x, IndexInt y) = if x /= y
+    then DO.zero
+    else DO.one
+makeIndexDelta (x, y) = DO.makeExpr (Func (Element delta (L.sort [x, y]) []))
 
-makeVariableDelta :: (Variable, Variable) -> Function
-makeVariableDelta (x, y) = Func (Element delta [] (L.sort [x, y]))
+makeVariableDelta :: (Variable, Variable) -> OpExpr
+makeVariableDelta (x, y) = DO.makeExpr (Func (Element delta [] (L.sort [x, y])))
 
 sameSymbol :: Element -> Element -> Bool
 sameSymbol (Element s1 _ _) (Element s2 _ _) = s1 == s2
 
-makeDeltas :: Element -> Element -> [Function]
-makeDeltas (Element s1 i1 v1) (Element s2 i2 v2) =
-    map makeIndexDelta indices_diff ++ map makeVariableDelta variables_diff where
+makeDeltas :: Element -> Element -> OpExpr
+makeDeltas (Element s1 i1 v1) (Element s2 i2 v2) = product deltas where
+        deltas = map makeIndexDelta indices_diff ++ map makeVariableDelta variables_diff
         indices_diff = differences i1 i2
         variables_diff = differences v1 v2
 
@@ -41,7 +44,7 @@ bosonicCommutationRelation :: CommutationRelation
 bosonicCommutationRelation (Op x) (Op y) = DO.zero
 bosonicCommutationRelation (DaggerOp x) (DaggerOp y) = DO.zero
 bosonicCommutationRelation (Op x) (DaggerOp y) = if sameSymbol x y
-    then product (map DO.makeExpr (makeDeltas x y))
+    then makeDeltas x y
     else DO.zero
 bosonicCommutationRelation (DaggerOp x) (Op y) = - bosonicCommutationRelation (Op x) (DaggerOp y)
 
@@ -129,16 +132,3 @@ opsToSP comm target = same_order - lower_part where
     -- We are going to the next recursion step, with operator list length lower by 2
     -- (because two operators get swapped and replaced by delta symbol in 'swapDifferent')
     lower_part = toSymmetricProduct comm lower_part_normal
-
-{-
-variance :: (Map Symbol Symbol) -> (Sum OpTerm) -> (Sum OpTerm) -> (Sum FuncTerm)
-variance cs x y = (expectation cs (x * y) + expectation cs (y * x) -
-    2 * (expectation cs x) * (expectation cs y)) / 2
-
-deltaSquared cs x = variance cs x x
-
-replaceSymmetricProducts expr = undefined
-toSymmetricProduct expr = undefined
-
-expectation cs x = replaceSymmetricProducts cs (toSymmetricProduct x)
--}

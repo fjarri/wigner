@@ -38,3 +38,5 @@ instance Expressable Rational where makeExpr x = fromRational x :: OpExpr
 instance Expressable (Complex Rational) where makeExpr x = fromComplexRational x :: OpExpr
 instance Expressable Operator where makeExpr = toExpr . fromOperator
 instance Expressable Function where makeExpr = toExpr . fromFunction
+instance Expressable OpFactor where makeExpr x = toExpr (OpTerm M.empty (Just x))
+instance Expressable Coefficient where makeExpr x = fromTerms [(x, identity)]

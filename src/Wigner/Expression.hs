@@ -10,7 +10,11 @@ module Wigner.Expression(
     Function(..),
     Operator(..),
     Differential(..),
+    FuncTerm(..),
+    OpTerm(..),
     OpFactor(..),
+    FuncFactor(..),
+    Coefficient(..),
     fromComplexRational,
     fromFunction,
     fromOperator,
@@ -19,11 +23,12 @@ module Wigner.Expression(
     asFuncExpr,
     asOpExpr,
     toExpr,
-    terms,
-    splitOpTermCoeff,
-    factors,
-    factorsExpanded,
+    terms, identity,
+    fromTerms,
+    splitOpTermCoeff, splitOpTermCoeffFunc,
+    factors, factorsExpanded, fromFactors, fromFactorsExpanded,
     dagger,
+    wrapWithExpectation, splitFuncTerm,
     ) where
 
 import Wigner.Complex
@@ -275,27 +280,53 @@ asOpExpr (Sum ts) = Sum $ M.mapKeys asOpTerm ts where
     asOpTerm (FuncTerm [FuncProduct fp]) = OpTerm fp Nothing
     asOpTerm opt = error "Not implemented: operator expressions containing differentials"
 
+wrapWithExpectation :: OpFactor -> FuncTerm
+wrapWithExpectation opf = FuncTerm [OpExpectation opf]
+
+splitFuncTerm :: FuncTerm -> [FuncFactor]
+splitFuncTerm (FuncTerm fs) = fs
+
 terms :: Sum a -> [(Coefficient, a)]
 terms (Sum ts) = map T.swap (M.assocs ts)
+
+fromTerms :: Ord a => [(Coefficient, a)] -> Sum a
+fromTerms ts = Sum (M.fromList (map T.swap ts))
 
 splitOpTerm :: OpTerm -> (OpExpr, Maybe OpFactor)
 splitOpTerm (ot@(OpTerm fs Nothing)) = (toExpr ot, Nothing)
 splitOpTerm (OpTerm fs opf) = (toExpr (OpTerm fs Nothing), opf)
 
+splitOpTermFunc :: OpTerm -> (FuncExpr, Maybe OpFactor)
+splitOpTermFunc (OpTerm fs opf)
+    | M.null fs = (toExpr (FuncTerm []), opf)
+    | otherwise = (toExpr (FuncTerm [FuncProduct fs]), opf)
+
 splitOpTermCoeff :: (Coefficient, OpTerm) -> (OpExpr, Maybe OpFactor)
 splitOpTermCoeff (c, ot) = (f_expr * Sum (M.singleton identity c), opf) where
     (f_expr, opf) = splitOpTerm ot
+
+splitOpTermCoeffFunc :: (Coefficient, OpTerm) -> (FuncExpr, Maybe OpFactor)
+splitOpTermCoeffFunc (c, ot) = (f_expr * Sum (M.singleton identity c), opf) where
+    (f_expr, opf) = splitOpTermFunc ot
 
 
 -- Factorisable instances
 
 class Factorisable a b where
     factors :: a -> [(b, Int)]
+    fromFactors :: [(b, Int)] -> a
+    fromFactorsExpanded :: [b] -> a
     factorsExpanded :: a -> [b]
-    factorsExpanded x = L.intercalate [] (map (\(f, p) -> replicate p f) (factors x))
 
-instance Factorisable (M.Map a Int) a where factors = M.assocs
-instance Factorisable [(a, Int)] a where factors = id
+    factorsExpanded x = L.intercalate [] (map (\(f, p) -> replicate p f) (factors x))
+    fromFactorsExpanded x = fromFactors (map (\x -> (x, 1 :: Int)) x)
+
+instance Ord a => Factorisable (M.Map a Int) a where
+    factors = M.assocs
+    fromFactors = M.fromListWith (+)
+instance Factorisable [(a, Int)] a where
+    factors = id
+    fromFactors = id
 
 
 -- Texable instances
