@@ -1,34 +1,19 @@
-{-# LANGUAGE TypeSynonymInstances, FlexibleInstances, MultiParamTypeClasses #-}
+{-# LANGUAGE TypeSynonymInstances, FlexibleInstances, MultiParamTypeClasses, FunctionalDependencies, UndecidableInstances #-}
 
 module Wigner.Expression(
-    OpExpr,
-    FuncExpr,
+    Expr(..),
     Symbol(..),
     Index(..),
-    Variable(..),
     Element(..),
     Function(..),
     Operator(..),
     Differential(..),
-    FuncTerm(..),
-    OpTerm(..),
+    Term(..),
     OpFactor(..),
     FuncFactor(..),
     Coefficient(..),
-    fromComplexRational,
-    fromFunction,
-    fromOperator,
-    fromDifferential,
-    asSymmetric,
-    asFuncExpr,
-    asOpExpr,
-    toExpr,
-    terms, identity,
-    fromTerms,
-    splitOpTermCoeff, splitOpTermCoeffFunc,
-    factors, factorsExpanded, fromFactors, fromFactorsExpanded,
-    dagger,
-    wrapWithExpectation, splitFuncTerm,
+    makeExpr,
+    dagger
     ) where
 
 import Wigner.Complex
@@ -40,39 +25,81 @@ import qualified Data.List as L
 
 -- Data types
 
-type ComplexRational = Complex Rational
-data Coefficient = Coefficient (ComplexRational) deriving (Show, Eq)
-
 data Symbol = Symbol String deriving (Show, Eq, Ord)
 data Index = IndexSymbol Symbol | IndexInt Int deriving (Show, Eq, Ord)
-data Variable = VariableSymbol Symbol deriving (Show, Eq, Ord)
-data Element = Element Symbol [Index] [Variable] deriving (Show, Eq)
+data Element = Element Symbol [Index] [Function] deriving (Show, Eq)
+data Function = Func Element | ConjFunc Element deriving (Show, Eq)
 
-data Sum a = Sum (M.Map a Coefficient) deriving (Show, Eq)
+data Operator = Op Element | DaggerOp Element deriving (Show, Eq)
+data Differential = Diff Function deriving (Show, Eq, Ord)
 
-type OpExpr = Sum OpTerm
-data OpTerm = OpTerm (M.Map Function Int) (Maybe OpFactor) deriving (Show, Eq)
-data OpFactor = NormalProduct [(Operator, Int)]
-              | SymmetricProduct (M.Map Operator Int)
-              deriving (Ord, Show, Eq)
+data Coefficient = Coefficient (Complex Rational) deriving (Show, Eq)
 
-type FuncExpr = Sum FuncTerm
-data FuncTerm = FuncTerm [FuncFactor] deriving (Show, Eq, Ord)
-data FuncFactor = OpExpectation OpFactor
-                | FuncExpectation (M.Map Function Int)
-                | FuncProduct (M.Map Function Int)
-                | DiffProduct (M.Map Differential Int)
+type SortedProduct a = M.Map a Int
+type OrderedProduct a = [(a, Int)]
+type SortedSum a = M.Map a Coefficient
+
+data Expr = Expr (SortedSum Term) deriving (Show, Eq)
+data Term = Term (Maybe OpFactor) [FuncGroup] deriving (Show, Eq, Ord)
+data FuncGroup = DiffProduct (SortedProduct Differential)
+               | FuncProduct (SortedProduct FuncFactor)
+               deriving (Show, Eq, Ord)
+data OpFactor = NormalProduct (OrderedProduct Operator)
+              | SymmetricProduct (SortedProduct Operator)
+              deriving (Show, Eq, Ord)
+data FuncFactor = Factor Function
+                | FuncExpectation (SortedProduct Function)
+                | OpExpectation OpFactor
                 deriving (Show, Eq, Ord)
 
-data Function = Func Element
-              | ConjFunc Element
-              deriving (Show, Eq)
-data Operator = Op Element
-              | DaggerOp Element
-              deriving (Show, Eq)
-data Differential = Diff Element
-                  | ConjDiff Element
-                  deriving (Show, Eq)
+
+-- Compositions/decompositions
+
+identityTerm = Term Nothing []
+
+class Sum a where
+    terms :: a -> [(Coefficient, Term)]
+    fromTerms :: [(Coefficient, Term)] -> a
+    mapTermPairs :: ((Coefficient, Term) -> (Coefficient, Term)) -> a -> a
+    mapCoefficients :: (Coefficient -> Coefficient) -> a -> a
+    mapTerms :: (Term -> Term) -> a -> a
+    zeroSum :: a
+    unitSum :: a
+    empty :: a -> Bool
+    fromCoeff :: Coefficient -> a
+
+    mapTermPairs f x = fromTerms (map f (terms x))
+    empty x = null (terms x)
+    zeroSum = fromTerms []
+    unitSum = fromTerms [(fromInteger 1 :: Coefficient, identityTerm)]
+    fromCoeff c = fromTerms [(c, identityTerm)]
+
+instance Sum (SortedSum Term) where
+    terms x = map T.swap (M.assocs x)
+    fromTerms x = M.filter (/= 0) (M.fromListWith (+) (map T.swap x))
+    mapTerms = M.mapKeysWith (+)
+    mapCoefficients = M.map
+
+
+class Product a b | a -> b where
+    factors :: a -> [(b, Int)]
+    fromFactors :: [(b, Int)] -> a
+    fromFactorsExpanded :: [b] -> a
+    factorsExpanded :: a -> [b]
+    mapFactors :: (b -> b) -> a -> a
+
+    factorsExpanded x = L.intercalate [] (map (\(f, p) -> replicate p f) (factors x))
+    fromFactorsExpanded x = fromFactors (map (\x -> (x, 1 :: Int)) x)
+    mapFactors f x = fromFactors (map (\(x, p) -> (f x, p)) (factors x))
+
+instance Ord a => Product (SortedProduct a) a where
+    factors = M.assocs
+    fromFactors = M.fromListWith (+)
+instance Eq a => Product (OrderedProduct a) a where
+    factors = id
+    fromFactors fs = map (foldr1 mulTuples) (L.groupBy eqTest fs) where
+        eqTest (x1, p1) (x2, p2) = x1 == x2
+        mulTuples (x1, p1) (_, p2) = (x1, p1 + p2)
 
 
 -- Ord instances
@@ -93,36 +120,29 @@ instance Ord Operator where
     compare (Op e1) (DaggerOp e2) = compareWithFallback GT e1 e2
     compare (DaggerOp e1) (Op e2) = compareWithFallback LT e1 e2
     compare (DaggerOp e1) (DaggerOp e2) = compare e1 e2
-instance Ord Differential where
-    compare (Diff e1) (Diff e2) = compare e1 e2
-    compare (Diff e1) (ConjDiff e2) = compareWithFallback GT e1 e2
-    compare (ConjDiff e1) (Diff e2) = compareWithFallback LT e1 e2
-    compare (ConjDiff e1) (ConjDiff e2) = compare e1 e2
-instance Ord OpTerm where
-    compare (OpTerm fs1 opf1) (OpTerm fs2 opf2) =
-        compare (opf1, fs1) (opf2, fs2)
 
 
 -- ComplexValued instances
 
-instance ComplexValued Coefficient where
-    conjugate (Coefficient x) = Coefficient (conjugate x)
-instance (Ord a, ComplexValued a) => ComplexValued (Sum a) where
-    conjugate (Sum ts) = Sum (M.map conjugate (M.mapKeys conjugate ts))
-instance ComplexValued FuncTerm where
-    conjugate (FuncTerm fs) = FuncTerm (map conjugate fs)
-instance ComplexValued FuncFactor where
-    conjugate (OpExpectation op) =
-        error "Not implemented: conjugation of operator product expectation"
-    conjugate (FuncExpectation fs) = FuncExpectation (M.mapKeys conjugate fs)
-    conjugate (FuncProduct fs) = FuncProduct (M.mapKeys conjugate fs)
-    conjugate (DiffProduct ds) = DiffProduct (M.mapKeys conjugate ds)
 instance ComplexValued Function where
     conjugate (Func e) = ConjFunc e
     conjugate (ConjFunc e) = Func e
 instance ComplexValued Differential where
-    conjugate (Diff e) = ConjDiff e
-    conjugate (ConjDiff e) = Diff e
+    conjugate (Diff e) = Diff (conjugate e)
+instance ComplexValued Coefficient where
+    conjugate (Coefficient x) = Coefficient (conjugate x)
+instance ComplexValued Expr where
+    conjugate (Expr s) = Expr (mapTermPairs (\(c, t) -> (conjugate c, conjugate t)) s)
+instance ComplexValued Term where
+    conjugate (Term Nothing fs) = Term Nothing (map conjugate fs)
+    conjugate (Term _ _) = error "Cannot conjugate operators"
+instance ComplexValued FuncGroup where
+    conjugate (DiffProduct fs) = DiffProduct (mapFactors conjugate fs)
+    conjugate (FuncProduct fs) = FuncProduct (mapFactors conjugate fs)
+instance ComplexValued FuncFactor where
+    conjugate (Factor f) = Factor (conjugate f)
+    conjugate (FuncExpectation fs) = FuncExpectation (mapFactors conjugate fs)
+    conjugate (OpExpectation opf) = error "Not implemented: conjugation of operator product expectation"
 
 
 -- OperatorValued instances
@@ -133,19 +153,21 @@ class OperatorValued a where
 instance OperatorValued a => OperatorValued (Maybe a) where
     dagger Nothing = Nothing
     dagger (Just x) = Just (dagger x)
-instance (Ord a, OperatorValued a) => OperatorValued (Sum a) where
-    dagger (Sum ts) = Sum (M.map conjugate (M.mapKeys dagger ts))
-instance OperatorValued OpTerm where
-    dagger (OpTerm fs opf) = OpTerm (M.mapKeys conjugate fs) (dagger opf)
-instance OperatorValued OpFactor where
-    dagger (NormalProduct ops) = NormalProduct (reverse (map (\(x, y) -> (dagger x, y)) ops))
-    dagger (SymmetricProduct ops) = SymmetricProduct (M.mapKeys dagger ops)
 instance OperatorValued Operator where
     dagger (Op e) = DaggerOp e
     dagger (DaggerOp e) = Op e
+instance OperatorValued Expr where
+    dagger (Expr s) = Expr (mapTermPairs (\(c, t) -> (conjugate c, dagger t)) s)
+instance OperatorValued Term where
+    dagger (Term opf fs) = Term (dagger opf) (map conjugate fs)
+instance OperatorValued OpFactor where
+    dagger (NormalProduct ops) = NormalProduct (fromFactorsExpanded dagger_operators) where
+        operators = factorsExpanded ops
+        dagger_operators = (reverse . map dagger) operators
+    dagger (SymmetricProduct ops) = SymmetricProduct (mapFactors dagger ops)
 
 
--- Multipliable instances
+-- Arithmetic helpers
 
 glueLists :: (a -> a -> [a]) -> [a] -> [a] -> [a]
 glueLists connect l1 l2
@@ -153,35 +175,30 @@ glueLists connect l1 l2
     | otherwise = init l1 ++ intersection ++ tail l2 where
         intersection = connect (last l1) (head l2)
 
-connectFactors :: FuncFactor -> FuncFactor -> [FuncFactor]
-connectFactors (FuncProduct x) (FuncProduct y) = [FuncProduct (M.unionWith (+) x y)]
-connectFactors (DiffProduct x) (DiffProduct y) = [DiffProduct (M.unionWith (+) x y)]
-connectFactors x y = [x, y]
+connectGroups :: FuncGroup -> FuncGroup -> [FuncGroup]
+connectGroups (DiffProduct g1) (DiffProduct g2) = [DiffProduct (fromFactors (factors g1 ++ factors g2))]
+connectGroups (FuncProduct g1) (FuncProduct g2) = [FuncProduct (fromFactors (factors g1 ++ factors g2))]
+connectGroups g1 g2 = [g1, g2]
 
-connectTuples :: (Operator, Int) -> (Operator, Int) -> [(Operator, Int)]
-connectTuples (x1, y1) (x2, y2)
-    | x1 == x2 = [(x1, y1 + y2)]
-    | otherwise = [(x1, y1), (x2, y2)]
+mulOpFactors :: Maybe OpFactor -> Maybe OpFactor -> Maybe OpFactor
+mulOpFactors Nothing Nothing = Nothing
+mulOpFactors (Just x) Nothing = Just x
+mulOpFactors Nothing (Just x) = Just x
+mulOpFactors (Just (NormalProduct x)) (Just (NormalProduct y)) = Just (NormalProduct $ op_list) where
+    op_list = fromFactors (factors x ++ factors y)
+mulOpFactors _ _ = error "Not implemented: multiplication with symmetric products"
 
-class Multipliable a where
-    mul :: a -> a -> a
+mulTerms :: Term -> Term -> Term
+mulTerms (Term opf1 fs1) (Term opf2 fs2) = Term op_product f_product where
+    op_product = mulOpFactors opf1 opf2
+    f_product = glueLists connectGroups fs1 fs2
 
-instance (Multipliable a) => Multipliable (Maybe a) where
-    Nothing `mul` Nothing = Nothing
-    (Just x) `mul` Nothing = Just x
-    Nothing `mul` (Just y) = Just y
-    (Just x) `mul` (Just y) = Just (x `mul` y)
+addSums :: Sum a => a -> a -> a
+addSums x y = fromTerms (terms x ++ terms y)
 
-instance Multipliable OpTerm where
-    (OpTerm f1 opf1) `mul` (OpTerm f2 opf2) =
-        OpTerm (M.unionWith (+) f1 f2) (opf1 `mul` opf2)
-
-instance Multipliable OpFactor where
-    (NormalProduct ops1) `mul` (NormalProduct ops2) = NormalProduct $ glueLists connectTuples ops1 ops2
-    x `mul` y = error "Not implemented: multiplication with symmetric products"
-
-instance Multipliable FuncTerm where
-    (FuncTerm ffs1) `mul` (FuncTerm ffs2) = FuncTerm $ glueLists connectFactors ffs1 ffs2
+mulSums :: Sum a => a -> a -> a
+mulSums x y = fromTerms products where
+    products = [(c1 * c2, mulTerms t1 t2) | (c1, t1) <- terms x, (c2, t2) <- terms y]
 
 
 -- Num instances
@@ -190,18 +207,18 @@ instance Num Coefficient where
     negate (Coefficient x) = Coefficient (negate x)
     (Coefficient x) + (Coefficient y) = Coefficient (x + y)
     (Coefficient x) * (Coefficient y) = Coefficient (x * y)
-    fromInteger x = Coefficient (fromInteger x :: ComplexRational)
+    fromInteger x = Coefficient (fromInteger x :: Complex Rational)
     abs = undefined
     signum = undefined
 
-instance (Term a, Ord a, Eq a, Show a, Multipliable a) => Num (Sum a) where
-    negate (Sum ts) = Sum (M.map negate ts)
-    (Sum ts1) + (Sum ts2) = Sum $ M.filter (/= 0) (M.unionWith (+) ts1 ts2)
-    (Sum ts1) * (Sum ts2) = Sum $ M.filter (/= 0) (M.fromListWithKey combine products) where
-        combine _ x y = x + y
-        products = [(t1 `mul` t2, c1 * c2) | (t1, c1) <- M.assocs ts1, (t2, c2) <- M.assocs ts2]
-    fromInteger 0 = Sum M.empty
-    fromInteger x = Sum $ M.singleton identity (fromInteger x :: Coefficient)
+instance Num Expr where
+    negate (Expr ts) = Expr (mapCoefficients negate ts)
+    (Expr ts1) + (Expr ts2) = Expr (addSums ts1 ts2)
+    (Expr ts1) * (Expr ts2) = Expr (mulSums ts1 ts2)
+    fromInteger 0 = Expr zeroSum
+    fromInteger x = Expr $ fromTerms [(c, t)] where
+        t = identityTerm
+        c = fromInteger x :: Coefficient
     abs = undefined
     signum = undefined
 
@@ -210,18 +227,19 @@ instance (Term a, Ord a, Eq a, Show a, Multipliable a) => Num (Sum a) where
 
 instance Fractional Coefficient where
     (Coefficient x) / (Coefficient y) = Coefficient (x / y)
-    fromRational x = Coefficient (fromRational x :: ComplexRational)
+    fromRational x = Coefficient (fromRational x :: Complex Rational)
 
-instance (Term a, Ord a, Eq a, Show a, Multipliable a) => Fractional (Sum a) where
-    x / (Sum ts)
-        | M.null ts  = error "Division by zero"
-        | M.size ts > 1 = error "Not implemented: division by sum"
-        | fst (head pairs) /= identity = error "Not implemented: division by non-scalar expression"
-        | otherwise = (Sum $ M.singleton identity (1 / snd (head pairs))) * x where
-            pairs = M.assocs ts
+instance Fractional Expr where
+    x / (Expr ts)
+        | empty ts  = error "Division by zero"
+        | length (terms ts) > 1 = error "Not implemented: division by sum"
+        | term /= identityTerm = error "Not implemented: division by non-scalar expression"
+        | otherwise = Expr (fromCoeff (1 / coeff)) * x where
+            term = snd (head (terms ts))
+            coeff = fst (head (terms ts))
     fromRational x
-        | x == 0 = Sum M.empty
-        | otherwise = Sum $ M.singleton identity (fromRational x :: Coefficient)
+        | x == 0 = Expr zeroSum
+        | otherwise = Expr (fromCoeff (fromRational x :: Coefficient))
 
 
 -- ComplexNum instances
@@ -229,37 +247,44 @@ instance (Term a, Ord a, Eq a, Show a, Multipliable a) => Fractional (Sum a) whe
 class ComplexNum a where
     fromComplexRational :: Complex Rational -> a
 
-instance Term a => ComplexNum (Sum a) where
-    fromComplexRational x = Sum $ M.singleton identity (fromComplexRational x :: Coefficient)
+instance ComplexNum Expr where
+    fromComplexRational x
+        | x == 0 = Expr zeroSum
+        | otherwise = Expr (fromCoeff (fromComplexRational x :: Coefficient))
 
 instance ComplexNum Coefficient where fromComplexRational = Coefficient
 
 
--- Term instances
-
-class Term a where
-    identity :: a
-    fromFunction :: Function -> a
-    fromOperator :: Operator -> a
-    fromDifferential :: Differential -> a
-    toExpr :: a -> Sum a
-    toExpr x = Sum (M.singleton x 1)
-
-instance Term OpTerm where
-    identity = OpTerm M.empty Nothing
-    fromFunction x = OpTerm (M.singleton x 1) Nothing
-    fromOperator x = OpTerm M.empty (Just (NormalProduct [(x, 1)]))
-    fromDifferential x = error "Not implemented: operator expressions containing differentials"
-
-instance Term FuncTerm where
-    identity = FuncTerm []
-    fromFunction x = FuncTerm [FuncProduct (M.singleton x 1)]
-    fromOperator x = error "Cannot create functional term from an operator"
-    fromDifferential x = FuncTerm [DiffProduct (M.singleton x 1)]
-
-
 -- Auxiliary functions
 
+exprFromTerm t = Expr (fromTerms [(fromInteger 1 :: Coefficient, t)])
+productFromFactor f = fromFactors [(f, 1)]
+
+class Expressable a where
+    makeExpr :: a -> Expr
+
+instance Expressable Int where makeExpr x = fromInteger (fromIntegral x :: Integer) :: Expr
+instance Expressable Rational where makeExpr x = fromRational x :: Expr
+instance Expressable (Complex Rational) where makeExpr x = fromComplexRational x :: Expr
+instance Expressable Differential where
+    makeExpr x = exprFromTerm term where
+        term = Term Nothing [diff_product]
+        diff_product = DiffProduct (productFromFactor x)
+instance Expressable Function where
+     makeExpr x = exprFromTerm term where
+         term = Term Nothing [func_product]
+         func_product = FuncProduct (productFromFactor (Factor x))
+instance Expressable Operator where
+     makeExpr x = exprFromTerm term where
+         term = Term (Just op_product) []
+         op_product = NormalProduct (productFromFactor x)
+
+--instance Expressable Operator where makeExpr = toExpr . fromOperator
+--instance Expressable Function where makeExpr = toExpr . fromFunction
+--instance Expressable OpFactor where makeExpr x = toExpr (OpTerm M.empty (Just x))
+--instance Expressable Coefficient where makeExpr x = fromTerms [(x, identity)]
+
+{-
 asSymmetric :: OpExpr -> OpExpr
 asSymmetric (Sum ts) = Sum $ M.mapKeys asSym ts where
     asSym (OpTerm fs Nothing) = OpTerm fs Nothing
@@ -267,30 +292,11 @@ asSymmetric (Sum ts) = Sum $ M.mapKeys asSym ts where
         OpTerm fs (Just (SymmetricProduct (M.fromListWith (+) ops)))
     asSym (OpTerm fs (Just (SymmetricProduct ops))) = OpTerm fs (Just (SymmetricProduct ops))
 
-asFuncExpr :: OpExpr -> FuncExpr
-asFuncExpr (Sum ts) = Sum $ M.mapKeys asFuncTerm ts where
-    asFuncTerm (OpTerm fs Nothing)
-        | M.null fs = FuncTerm []
-        | otherwise = FuncTerm [FuncProduct fs]
-    asFuncTerm opt = error "Cannot convert operators to functions"
-
-asOpExpr :: FuncExpr -> OpExpr
-asOpExpr (Sum ts) = Sum $ M.mapKeys asOpTerm ts where
-    asOpTerm (FuncTerm []) = OpTerm M.empty Nothing
-    asOpTerm (FuncTerm [FuncProduct fp]) = OpTerm fp Nothing
-    asOpTerm opt = error "Not implemented: operator expressions containing differentials"
-
 wrapWithExpectation :: OpFactor -> FuncTerm
 wrapWithExpectation opf = FuncTerm [OpExpectation opf]
 
 splitFuncTerm :: FuncTerm -> [FuncFactor]
 splitFuncTerm (FuncTerm fs) = fs
-
-terms :: Sum a -> [(Coefficient, a)]
-terms (Sum ts) = map T.swap (M.assocs ts)
-
-fromTerms :: Ord a => [(Coefficient, a)] -> Sum a
-fromTerms ts = Sum (M.fromList (map T.swap ts))
 
 splitOpTerm :: OpTerm -> (OpExpr, Maybe OpFactor)
 splitOpTerm (ot@(OpTerm fs Nothing)) = (toExpr ot, Nothing)
@@ -308,33 +314,15 @@ splitOpTermCoeff (c, ot) = (f_expr * Sum (M.singleton identity c), opf) where
 splitOpTermCoeffFunc :: (Coefficient, OpTerm) -> (FuncExpr, Maybe OpFactor)
 splitOpTermCoeffFunc (c, ot) = (f_expr * Sum (M.singleton identity c), opf) where
     (f_expr, opf) = splitOpTermFunc ot
-
-
--- Factorisable instances
-
-class Factorisable a b where
-    factors :: a -> [(b, Int)]
-    fromFactors :: [(b, Int)] -> a
-    fromFactorsExpanded :: [b] -> a
-    factorsExpanded :: a -> [b]
-
-    factorsExpanded x = L.intercalate [] (map (\(f, p) -> replicate p f) (factors x))
-    fromFactorsExpanded x = fromFactors (map (\x -> (x, 1 :: Int)) x)
-
-instance Ord a => Factorisable (M.Map a Int) a where
-    factors = M.assocs
-    fromFactors = M.fromListWith (+)
-instance Factorisable [(a, Int)] a where
-    factors = id
-    fromFactors = id
+-}
 
 
 -- Texable instances
 
 class Texable a => Superscriptable a where
     needsParentheses :: a -> Bool
-    showTexWithExponent :: a -> Int -> String
-    showTexWithExponent x p = addPower p (showTex x) (needsParentheses x)
+    showTexWithExponent :: (a, Int) -> String
+    showTexWithExponent (x, p) = addPower p (showTex x) (needsParentheses x)
 
 instance Superscriptable Operator where
     needsParentheses (Op e) = False
@@ -344,9 +332,11 @@ instance Superscriptable Function where
     needsParentheses (ConjFunc e) = True
 instance Superscriptable Differential where
     needsParentheses _ = True
+instance Superscriptable FuncFactor where
+    needsParentheses (Factor f) = needsParentheses f
+    needsParentheses _ = True
 
-
-showTexIV :: [Index] -> [Variable] -> String
+showTexIV :: [Index] -> [Function] -> String
 showTexIV is vs = indices_str ++ variables_str where
     indices_str = case length is of
         0 -> ""
@@ -364,8 +354,12 @@ addPower i s False = s ++ "^" ++ show i
 makeDiff :: String -> String -> String
 makeDiff diff_s s = "\\frac{" ++  diff_s ++ "}{" ++ diff_s ++ " " ++ s ++ "}"
 
-diffSymbol :: Element -> String
-diffSymbol (Element _ _ vs) = if null vs then "\\partial" else "\\delta"
+diffSymbolForElement :: Element -> String
+diffSymbolForElement (Element _ _ vs) = if null vs then "\\partial" else "\\delta"
+
+diffSymbol :: Function -> String
+diffSymbol (Func e) = diffSymbolForElement e
+diffSymbol (ConjFunc e) = diffSymbolForElement e
 
 instance Texable Symbol where
     showTex (Symbol s) = s
@@ -374,20 +368,17 @@ instance Texable Index where
     showTex (IndexSymbol s) = showTex s
     showTex (IndexInt s) = show s
 
-instance Texable Variable where
-    showTex (VariableSymbol s) = showTex s
-
 instance Texable Element where
     showTex (Element s is vs) = showTex s ++ showTexIV is vs
 
 instance Texable a => Texable [a] where
     showTex x = unwords (map showTex x)
 
-instance (Superscriptable a, Texable a) => Texable (a, Int) where
-    showTex (x, p) = showTexWithExponent x p
+class TexableProduct a where
+    showTexProduct :: a -> String
 
-instance (Superscriptable a, Texable a) => Texable (M.Map a Int) where
-    showTex x = showTex (M.assocs x)
+instance (Superscriptable b, Texable b, Product a b) => TexableProduct a where
+    showTexProduct x = unwords (map showTexWithExponent (factors x))
 
 instance Texable Coefficient where
     showTex (Coefficient x) = showTex x
@@ -401,29 +392,28 @@ instance Texable Operator where
     showTex (DaggerOp e) = showTex (Op e) ++ "^\\dagger"
 
 instance Texable Differential where
-    showTex (Diff e) = makeDiff (diffSymbol e) (showTex (Func e))
-    showTex (ConjDiff e) = makeDiff (diffSymbol e) (showTex (ConjFunc e))
+    showTex (Diff f) = makeDiff (diffSymbol f) (showTex f)
 
 instance Texable OpFactor where
-    showTex (NormalProduct ops) = showTex ops
-    showTex (SymmetricProduct ops) = "\\symprod{" ++ showTex ops ++ "}"
+    showTex (NormalProduct ops) = showTexProduct ops
+    showTex (SymmetricProduct ops) = "\\symprod{" ++ showTexProduct ops ++ "}"
+
+instance Texable FuncGroup where
+    showTex (FuncProduct fs) = showTexProduct fs
+    showTex (DiffProduct ds) = showTexProduct ds
 
 instance Texable FuncFactor where
+    showTex (Factor f) = showTex f
     showTex (OpExpectation opf) = "\\langle" ++ showTex opf ++ "\\rangle"
-    showTex (FuncExpectation fs) = "\\pathavg{" ++ showTex fs ++ "}"
-    showTex (FuncProduct fs) = showTex fs
-    showTex (DiffProduct ds) = showTex ds
+    showTex (FuncExpectation fs) = "\\pathavg{" ++ showTexProduct fs ++ "}"
 
-instance Texable OpTerm where
-    showTex (OpTerm fs Nothing) = showTex fs
-    showTex (OpTerm fs (Just opf)) = showTex (OpTerm fs Nothing) ++ " " ++ showTex opf
+instance Texable Term where
+    showTex (Term Nothing fs) = showTex fs
+    showTex (Term (Just opf) fs) = showTex (Term Nothing fs) ++ " " ++ showTex opf
 
-instance Texable FuncTerm where
-    showTex (FuncTerm ffs) = showTex ffs
-
-instance (Term a, Texable a, Eq a) => Texable (Sum a) where
-    showTex s
-        | null ts = "0"
+instance Texable Expr where
+    showTex (Expr s)
+        | empty s = "0"
         | otherwise = showTexList ts where
             ts = terms s
             positive (Coefficient (x :+ y)) = x > 0 || (x == 0 && y > 0)
@@ -434,7 +424,7 @@ instance (Term a, Texable a, Eq a) => Texable (Sum a) where
                 | otherwise = showTex c where
                     plus_str = if explicit_plus then "+" else ""
             showTexTuple explicit_plus (c, t)
-                | t == identity = showCoeff c True explicit_plus
+                | t == identityTerm = showCoeff c True explicit_plus
                 | otherwise = showCoeff c False explicit_plus ++ " " ++ showTex t
             showTexList (tc:[]) = showTexTuple False tc
             showTexList (tc:tcs) = showTexList [tc] ++ " " ++

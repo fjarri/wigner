@@ -1,9 +1,8 @@
 module Wigner.Symbols(
     a, b,
     ix_i, ix_j, ix_1, ix_2,
-    var_x, var_x',
     alpha, beta, delta, rho, theta,
-    symbol, index, variable,
+    symbol, index,
     mapElement, mapElementWith,
     default_map,
     SymbolCorrespondence
@@ -21,12 +20,6 @@ class CanBeIndex a where
 
 instance CanBeIndex Int where index = IndexInt
 instance CanBeIndex Symbol where index = IndexSymbol
-
-
-class CanBeVariable a where
-    variable :: a -> Variable
-
-instance CanBeVariable Symbol where variable = VariableSymbol
 
 
 a = symbol "a"
@@ -47,8 +40,6 @@ ix_j = index j
 ix_1 = index (1 :: Int)
 ix_2 = index (2 :: Int)
 
-var_x = variable x
-var_x' = variable x'
 
 type SymbolCorrespondence = M.Map Symbol Symbol
 default_map = fromList [(a, alpha), (b, beta)]
