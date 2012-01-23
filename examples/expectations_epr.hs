@@ -29,7 +29,6 @@ e_idt = D.constant $ S.symbol "(e^{i \\Delta \\theta})"
 e_m_idt = D.constant $ S.symbol "(e^{-i \\Delta \\theta})"
 cos_t = D.constant $ S.symbol "\\cos(\\theta)"
 sin_t = D.constant $ S.symbol "\\sin(\\theta)"
-i_n0 = D.constant $ S.symbol "(\\frac{1}{n_0})"
 
 ca2a1 = (dagger a2) * a1
 
@@ -49,8 +48,7 @@ constants = [
     (cos_t, "numpy.cos(theta)"),
     (sin_t, "numpy.sin(theta)"),
     (g, "g"),
-    (isqrt2, "numpy.sqrt(0.5)"),
-    (i_n0, "(1 / n0)")
+    (isqrt2, "numpy.sqrt(0.5)")
     ]
 exprs = [
     Result ComplexValue (eval $ E.expectation ca2a1) "exp_ca2a1",
@@ -59,8 +57,7 @@ exprs = [
     Lambda RealValue (eval $ E.variance jCT jDT) "var_jCTjDT" ["theta"],
     Result RealValue (eval $ E.expectation jCY) "exp_jCY",
     Result RealValue (eval $ E.expectation jDY) "exp_jDY",
-    UserCalculation "n0",
-    Lambda RealValue (eval $ E.deltaSquared ((jCT + g * jDT) * i_n0)) "S" ["theta", "g"]
+    Lambda RealValue (eval $ E.deltaSquared (jCT + g * jDT)) "d2_jCT_gjDT" ["theta", "g"]
     ]
 
 main = do
