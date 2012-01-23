@@ -1,8 +1,6 @@
 import qualified Wigner.Symbols as S
 import qualified Wigner.DefineExpression as D
 import qualified Wigner.Expectations as E
-import qualified Data.Set as Set
-import qualified Data.Map as M
 
 import Data.Ratio
 import Wigner.Complex
@@ -28,11 +26,6 @@ jAY = ((dagger a2) * a1 * e_idt - (dagger a1) * a2 * e_m_idt) / (2 * D.i)
 jAZ = ((dagger a2) * a2 - (dagger a1) * a1) / 2
 jAT = cos_t * jAZ + sin_t * jAX
 ca2a1 = (dagger a2) * a1
-
-isqrt2 = D.constant $ S.symbol "(\\frac{1}{\\sqrt{2}})"
-c1 = isqrt2 * (a1 + b1 * D.i)
-c2 = isqrt2 * (a2 + b2 * D.i)
-jCZ = ((dagger c2) * c2 - (dagger c1) * c1) / 2
 
 -- Expectations
 exp_ca2a1 = eval $ E.expectation ca2a1
@@ -60,6 +53,3 @@ exprs = [
 
 main = do
     putStrLn $ xmdsGenerateCode constants exprs
---    putStrLn $ xmdsBlock exprs
---    putStrLn $ pythonBlock exprs ["exp_a2a1", "exp_jAY"] ()
-
