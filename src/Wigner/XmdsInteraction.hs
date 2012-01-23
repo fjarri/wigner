@@ -2,7 +2,8 @@
 
 module Wigner.XmdsInteraction(
     xmdsGenerateCode,
-    PythonExpression(..)
+    PythonExpression(..),
+    ResultValue(..)
     ) where
 
 import Data.Maybe
@@ -62,8 +63,9 @@ xmdsBlock exprs = "<moments>\n" ++ unwords moments ++ "\n</moments>\n" ++
     moments = L.map xmdsMoments (S.elems exps)
     momentsExpressions = xmdsCalculationCode exps
 
-data PythonExpression = Result Expr String
-                      | Lambda Expr String [String]
+data ResultValue = RealValue | ComplexValue
+data PythonExpression = Result ResultValue Expr String
+                      | Lambda ResultValue Expr String [String]
                       | UserCalculation String
 type ConstantsMap = M.Map Function String
 
@@ -80,17 +82,21 @@ xmdsGenerateCode constants pyexprs = "XMDS code:\n\n" ++
         "\n\nPython code:\n\n" ++
         pythonBlock constants_map pyexprs where
     constants_map = makeConstantsMap constants
-    getExprs (Result expr _) = expr
-    getExprs (Lambda expr _ _) = expr
+    getExprs (Result _ expr _) = expr
+    getExprs (Lambda _ expr _ _) = expr
     removeUserPart (UserCalculation _) = False
     removeUserPart _ = True
+
+valueConverter :: ResultValue -> String -> String
+valueConverter RealValue s = "numpy.real(" ++ s ++ ")"
+valueConverter ComplexValue s = s
 
 pythonBlock :: ConstantsMap -> [PythonExpression] -> String
 pythonBlock constants pyexprs = unlines (L.map (pythonExpr constants) pyexprs) where
     pythonExpr _ (UserCalculation s) = s ++ " = NotImplementedError()"
-    pythonExpr constants (Result expr s) = s ++ " = " ++ showPython constants expr
-    pythonExpr constants (Lambda expr s vars) = s ++ " = lambda " ++
-        intercalate ", " vars ++ ": " ++ showPython constants expr
+    pythonExpr constants (Result val expr s) = s ++ " = " ++ (valueConverter val) (showPython constants expr)
+    pythonExpr constants (Lambda val expr s vars) = s ++ " = lambda " ++
+        L.intercalate ", " vars ++ ": " ++ (valueConverter val) (showPython constants expr)
 
 
 class PythonShowable a where

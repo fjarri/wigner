@@ -49,13 +49,13 @@ constants = [
     (sin_t, "numpy.sin(theta)")
     ]
 exprs = [
-    Result exp_ca2a1 "exp_ca2a1",
+    Result ComplexValue exp_ca2a1 "exp_ca2a1",
     UserCalculation "d_theta",
-    Result exp_jAY "exp_jAY",
-	Result var_jAZ_jAX "var_jAZ_jAX",
-	Result d2_jAZ "d2_jAZ",
-	Result d2_jAX "d2_jAX",
-	Lambda d2_jAT "d2_jAT" ["theta"]
+    Result RealValue exp_jAY "exp_jAY",
+	Result RealValue var_jAZ_jAX "var_jAZ_jAX",
+	Result RealValue d2_jAZ "d2_jAZ",
+	Result RealValue d2_jAX "d2_jAX",
+	Lambda RealValue d2_jAT "d2_jAT" ["theta"]
     ]
 
 main = do
