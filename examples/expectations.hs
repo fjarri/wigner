@@ -41,6 +41,8 @@ d2_jAZ = eval $ E.deltaSquared jAZ
 d2_jAX = eval $ E.deltaSquared jAX
 d2_jAT = eval $ E.deltaSquared jAT
 
+exprs = [exp_a2a1, exp_jAY]
+
 main = do
 
 --    putStrLn $ "exp_a2a1 = " ++ showTex exp_a2a1 ++ "\n"
@@ -50,10 +52,4 @@ main = do
 --    putStrLn $ "d2_jAX = " ++ showTex d2_jAX ++ "\n"
 --    putStrLn $ "d2_jAT = " ++ showTex d2_jAT ++ "\n"
 
-    putStrLn $ unwords $ xmdsMoments [exp_a2a1, exp_jAY]
-    putStrLn $ unlines $ xmdsMomentsExpressions [exp_a2a1, exp_jAY]
-
-    putStrLn $ unwords $ xmdsMoments [d2_jAT]
-    putStrLn $ unlines $ xmdsMomentsExpressions [d2_jAT]
-
-
+    putStrLn $ xmdsBlock exprs

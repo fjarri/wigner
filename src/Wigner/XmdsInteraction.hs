@@ -1,8 +1,7 @@
 module Wigner.XmdsInteraction(
     extractExpectations,
     variableForExpectation,
-    xmdsMomentsExpressions,
-    xmdsMoments
+    xmdsBlock,
     ) where
 
 import Wigner.Expression
@@ -33,26 +32,16 @@ xmdsCalculationString :: FuncFactor -> String
 xmdsCalculationString (FuncExpectation fs) = L.intercalate " * " factorExpressions where
     factorExpressions = (L.map processFactor (factorsExpanded fs))
     processFactor (f@(Func e)) = variableForFunction f
-    processFactor (f@(ConjFunc e)) = "conj(" ++ variableForFunction f ++ ")"
+    processFactor (f@(ConjFunc e)) = "conj(" ++ variableForFunction (Func e) ++ ")"
 
 xmdsCalculationCode :: S.Set FuncFactor -> [String]
 xmdsCalculationCode s = L.map calculationLine (S.elems s) where
     calculationLine f = variableForExpectation f ++ " = " ++ xmdsCalculationString f ++ ";"
 
--- This goes into <dependencies>
-xmdsMomentsExpressions :: [Expr] -> [String]
-xmdsMomentsExpressions exprs = xmdsCalculationCode (S.unions (L.map extractExpectations exprs))
-
--- This goes into <moments>
-xmdsMoments :: [Expr] -> [String]
-xmdsMoments exprs = L.map variableForExpectation (S.elems exps) where
+xmdsBlock :: [Expr] -> String
+xmdsBlock exprs = "<moments>\n" ++ unwords moments ++ "\n</moments>\n" ++
+        "<dependencies>main</dependencies><![CDATA[\n" ++
+        unlines momentsExpressions ++ "]]>" where
     exps = S.unions (L.map extractExpectations exprs)
-
-
-
---getSampling :: Expr -> M.Map String String
---getSampling expr =
-
-
---xmdsMoments :: Expr -> [String]
---xmdsMoments expr = M.keys (xmdsMomentPairs expr)
+    moments = L.map variableForExpectation (S.elems exps)
+    momentsExpressions = xmdsCalculationCode exps
