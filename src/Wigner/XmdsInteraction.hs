@@ -28,12 +28,12 @@ variableForFunction :: Function -> String
 variableForFunction (Func (Element e i _)) = elem_str ++ indices_str where
     elem_str = L.filter (/= '\\') (showTex e)
     indices_str = L.intercalate "" (L.map showTex i)
-variableForFunction (ConjFunc e) = "c" ++ variableForFunction (Func e)
+variableForFunction (ConjFunc e) = 'c' : variableForFunction (Func e)
 
 variableForExpectation :: FuncFactor -> String
 variableForExpectation (FuncExpectation fs) = L.intercalate "_" (L.map processFactor (factors fs)) where
     processFactor (f, 1) = variableForFunction f
-    processFactor (f, p) = variableForFunction f ++ "_" ++ (show p)
+    processFactor (f, p) = variableForFunction f ++ "_" ++ show p
 
 realPart = (++) "re_"
 imagPart = (++) "im_"
@@ -44,7 +44,7 @@ xmdsMoments x = unwords [realPart var, imagPart var] where
 
 xmdsCalculationString :: FuncFactor -> String
 xmdsCalculationString (FuncExpectation fs) = L.intercalate " * " factorExpressions where
-    factorExpressions = (L.map processFactor (factorsExpanded fs))
+    factorExpressions = L.map processFactor (factorsExpanded fs)
     processFactor (f@(Func e)) = variableForFunction f
     processFactor (f@(ConjFunc e)) = "conj(" ++ variableForFunction (Func e) ++ ")"
 
@@ -94,9 +94,9 @@ valueConverter ComplexValue s = s
 pythonBlock :: ConstantsMap -> [PythonExpression] -> String
 pythonBlock constants pyexprs = unlines (L.map (pythonExpr constants) pyexprs) where
     pythonExpr _ (UserCalculation s) = s ++ " = NotImplementedError()"
-    pythonExpr constants (Result val expr s) = s ++ " = " ++ (valueConverter val) (showPython constants expr)
+    pythonExpr constants (Result val expr s) = s ++ " = " ++ valueConverter val (showPython constants expr)
     pythonExpr constants (Lambda val expr s vars) = s ++ " = lambda " ++
-        L.intercalate ", " vars ++ ": " ++ (valueConverter val) (showPython constants expr)
+        L.intercalate ", " vars ++ ": " ++ valueConverter val (showPython constants expr)
 
 
 class PythonShowable a where
@@ -130,5 +130,5 @@ instance PythonShowable FuncGroup where
             | p == 1 = showPython constants x
             | otherwise = showPython constants x ++ " ** " ++ show p
 instance PythonShowable FuncFactor where
-    showPython constants (Factor f) = fromJust (M.lookup f constants) where
+    showPython constants (Factor f) = fromJust (M.lookup f constants)
     showPython _ (fe@(FuncExpectation fs)) = "data." ++ variableForExpectation fe
