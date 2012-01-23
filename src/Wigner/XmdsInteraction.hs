@@ -130,5 +130,7 @@ instance PythonShowable FuncGroup where
             | p == 1 = showPython constants x
             | otherwise = showPython constants x ++ " ** " ++ show p
 instance PythonShowable FuncFactor where
-    showPython constants (Factor f) = fromJust (M.lookup f constants)
+    showPython constants (Factor f@(Func _)) = fromJust (M.lookup f constants)
+    showPython constants (Factor (ConjFunc x)) = "numpy.conj(" ++
+        fromJust (M.lookup (Func x) constants) ++ ")"
     showPython _ (fe@(FuncExpectation fs)) = "data." ++ variableForExpectation fe
