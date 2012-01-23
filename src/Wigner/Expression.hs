@@ -13,7 +13,7 @@ module Wigner.Expression(
     FuncFactor(..),
     FuncGroup(..),
     Coefficient(..),
-    terms, fromTerms,
+    terms, fromTerms, emptySum,
     identityTerm,
     fromCoeff,
     dagger,
@@ -68,11 +68,11 @@ class Sum a where
     mapCoefficients :: (Coefficient -> Coefficient) -> a -> a
     zeroSum :: a
     unitSum :: a
-    empty :: a -> Bool
+    emptySum :: a -> Bool
     fromCoeff :: Coefficient -> a
 
     mapTermPairs f x = fromTerms (map f (terms x))
-    empty x = null (terms x)
+    emptySum x = null (terms x)
     zeroSum = fromTerms []
     unitSum = fromTerms [(1 :: Coefficient, identityTerm)]
     fromCoeff c = fromTerms [(c, identityTerm)]
@@ -233,7 +233,7 @@ instance Fractional Coefficient where
 
 instance Fractional Expr where
     x / (Expr ts)
-        | empty ts  = error "Division by zero"
+        | emptySum ts  = error "Division by zero"
         | length (terms ts) > 1 = error "Not implemented: division by sum"
         | term /= identityTerm = error "Not implemented: division by non-scalar expression"
         | otherwise = Expr (fromCoeff (1 / coeff)) * x where
@@ -350,7 +350,7 @@ instance Texable Term where
 
 instance Texable Expr where
     showTex (Expr s)
-        | empty s = "0"
+        | emptySum s = "0"
         | otherwise = showTexList ts where
             ts = terms s
             positive (Coefficient (x :+ y)) = x > 0 || (x == 0 && y > 0)
