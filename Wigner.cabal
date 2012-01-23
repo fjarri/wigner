@@ -4,8 +4,8 @@ Synopsis:            Symbolic algebra for Wigner method
 Homepage:            http://github.com/Manticore/wigner
 License:             BSD3
 License-file:        LICENSE
-Author:              Bogdan Opanchuk <mantihor@gmail.com>
-Maintainer:          Bogdan Opanchuk mantihor@gmail.com
+Author:              Bogdan Opanchuk <bogdan@opanchuk.net>
+Maintainer:          Bogdan Opanchuk <bogdan@opanchuk.net>
 
 Category:            Math
 Build-type:          Simple
@@ -23,7 +23,13 @@ Library
     OverlappingInstances,
     UndecidableInstances
   Exposed-modules:
-    Wigner
+    Wigner.Symbols
+    Wigner.DefineExpression
+    Wigner.Expectations
+    Wigner.Complex
+    Wigner.Texable
+    Wigner.Expression
+    Wigner.XmdsInteraction
 
   Build-Depends:
     base >= 4.4.0.0
