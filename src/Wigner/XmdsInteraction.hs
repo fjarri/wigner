@@ -99,14 +99,19 @@ class PythonShowable a where
 instance PythonShowable Expr where
     showPython constants (Expr s)
         | emptySum s = "0"
-        | otherwise = L.intercalate " + " (L.map showTerm (terms s)) where
+        | otherwise = L.intercalate " + \\\n\t" (L.map showTerm (terms s)) where
         showTerm (c, t)
+            | c == 1 && t == identityTerm = "1"
+            | c == 1 = showPython constants t
             | t == identityTerm = "(" ++ showPython constants c ++ ")"
-            | otherwise = showTerm (c, identityTerm) ++ " * (" ++ showPython constants t ++ ")"
+            | otherwise = showTerm (c, identityTerm) ++ " * " ++ showPython constants t
 instance PythonShowable Coefficient where
     showPython constants (Coefficient c) = showPython constants c
 instance PythonShowable (Complex Rational) where
-    showPython constants (x :+ y) = showPython constants x ++ " + 1j * (" ++ showPython constants y ++ ")"
+    showPython constants (x :+ y)
+        | y == 0 = showPython constants x
+        | x == 0 = "1j * " ++ showPython constants y
+        | otherwise = showPython constants x ++ " + 1j * " ++ showPython constants y
 instance PythonShowable Rational where
     showPython _ x = "float(" ++ show n ++ ") / " ++ show d where
 		n = numerator x
@@ -115,7 +120,9 @@ instance PythonShowable Term where
     showPython constants (Term Nothing fs) = L.intercalate " * " (L.map (showPython constants) fs)
 instance PythonShowable FuncGroup where
     showPython constants (FuncProduct fs) = L.intercalate " * " (L.map showFactor (factors fs)) where
-        showFactor (x, p) = "(" ++ showPython constants x ++ ") ** " ++ show p
+        showFactor (x, p)
+            | p == 1 = showPython constants x
+            | otherwise = showPython constants x ++ " ** " ++ show p
 instance PythonShowable FuncFactor where
     showPython constants (Factor f) = fromJust (M.lookup f constants) where
     showPython _ (fe@(FuncExpectation fs)) = "data." ++ variableForExpectation fe
