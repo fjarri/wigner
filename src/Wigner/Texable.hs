@@ -1,4 +1,4 @@
-module Wigner.Texable (Texable, showTex) where
+module Wigner.Texable (Texable(showTex)) where
 
 import Data.Ratio
 

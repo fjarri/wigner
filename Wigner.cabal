@@ -30,6 +30,8 @@ Library
     Wigner.Texable
     Wigner.Expression
     Wigner.XmdsInteraction
+    Wigner.OperatorAlgebra
 
   Build-Depends:
-    base >= 4.4.0.0
+    base >= 4.4.0.0,
+    containers >= 0.4.0.0

@@ -1,5 +1,7 @@
 module Wigner.Complex (
-    Complex((:+)), conjugate, ComplexValued, ComplexNum, fromComplexRational) where
+    Complex((:+)),
+    ComplexValued(conjugate),
+    ComplexNum(fromComplexRational)) where
 
 import Data.Ratio
 import Wigner.Texable
