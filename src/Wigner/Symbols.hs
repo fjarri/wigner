@@ -1,6 +1,6 @@
 module Wigner.Symbols(
-    a, b,
-    ix_i, ix_j, ix_1, ix_2,
+    a, b, x, x',
+    ix_i, ix_j, ix_k, ix_1, ix_2,
     alpha, beta, delta, rho, theta,
     symbol, index,
     mapElement, mapElementWith,
@@ -26,8 +26,9 @@ a = symbol "a"
 b = symbol "b"
 i = symbol "i"
 j = symbol "j"
+k = symbol "k"
 x = symbol "x"
-x' = symbol "x'"
+x' = symbol "x^\\prime"
 
 alpha = symbol "\\alpha"
 beta = symbol "\\beta"
@@ -37,6 +38,7 @@ theta = symbol "\\theta"
 
 ix_i = index i
 ix_j = index j
+ix_k = index k
 ix_1 = index (1 :: Int)
 ix_2 = index (2 :: Int)
 
