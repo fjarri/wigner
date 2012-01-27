@@ -31,10 +31,6 @@ differentialFuncIx s i v = makeExpr $ Diff $ Func $ Element s i v
 differentialIx s i = differentialFuncIx s i []
 differential s = differentialFuncIx s [] []
 
---normalProduct :: [Operator] -> OpExpr
---normalProduct ops = product (map makeExpr ops)
---symmetricProduct ops = asSymmetric (normalProduct ops)
-
 zero = 0 :: Expr
 one = 1 :: Expr
 i = makeExpr (0 :+ 1 :: Complex Rational)
