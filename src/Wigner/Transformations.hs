@@ -1,15 +1,19 @@
 module Wigner.Transformations(
     wignerTransformation,
     truncateDifferentials,
+    showTexByDifferentials,
     ) where
 
 import Wigner.Complex
 import Wigner.Expression
 import Wigner.Deltas
 import Wigner.ExpressionHelpers
+import Wigner.Texable
 import qualified Wigner.Symbols as S
 import qualified Wigner.DefineExpression as D
 
+import qualified Data.Map as M
+import qualified Data.List as L
 
 data OperatorPosition = Before | After
 type FunctionCorrespondence = S.SymbolCorrespondence -> OperatorPosition -> Operator -> Expr
@@ -93,3 +97,14 @@ truncateDifferentials n expr = mapTerms processTerm expr where
     processTerm t@(Term Nothing [DiffProduct ds, FuncProduct fs])
         | length (factorsExpanded ds) <= n = makeExpr t
         | otherwise = D.zero
+
+showTexByDifferentials :: Expr -> String
+showTexByDifferentials (Expr s) = unlines result_lines where
+    processTerm (c, Term Nothing [DiffProduct ds, f@(FuncProduct fs)]) =
+        (ds, makeExpr c * makeExpr f)
+    diff_to_expr = M.fromListWith (+) (map processTerm (terms s))
+    pairs = M.assocs diff_to_expr
+    showPair (diffs, funcs) = diff_str ++ " \\left( " ++ func_str ++ " \\right) " where
+            diff_str = showTex (makeExpr (DiffProduct diffs))
+            func_str = showTex funcs
+    result_lines = [showPair (head pairs)] ++ (map (("+ " ++) . showPair) (tail pairs))
