@@ -13,13 +13,24 @@ import qualified Wigner.DefineExpression as D
 data OperatorPosition = Before | After
 type FunctionCorrespondence = S.SymbolCorrespondence -> OperatorPosition -> Operator -> Expr
 
+-- In order to simplify resulting expressions we need to know which deltas are real-valued.
+-- This function conjugates only complex-valued deltas in the expression
+-- (which means those with different variables).
+-- WARNING: works only with products of delta-functions.
+conjugateDeltas expr = mapFuncFactors processFactor expr where
+    processFactor (Factor (ConjFunc e)) = makeExpr (Func e)
+    processFactor (Factor f@(Func (Element s i []))) = makeExpr f
+    processFactor (Factor f@(Func (Element s i [v1, v2])))
+        | v1 == v2 = makeExpr f
+        | otherwise = makeExpr (conjugate f)
+
 funcDiffCommutator :: Function -> Differential -> Expr
 funcDiffCommutator (Func _) (Diff (ConjFunc _)) = D.zero
 funcDiffCommutator (ConjFunc _) (Diff (Func _)) = D.zero
 funcDiffCommutator f@(Func fe) d@(Diff (Func de)) =
     if sameSymbol fe de then makeDeltas fe de else D.zero
 funcDiffCommutator f@(ConjFunc _) d@(Diff (ConjFunc _)) =
-    conjugate (funcDiffCommutator (conjugate f) (conjugate d))
+    conjugateDeltas $ funcDiffCommutator (conjugate f) (conjugate d)
 
 wignerCorrespondence :: FunctionCorrespondence
 wignerCorrespondence s_corr Before (Op e) =
