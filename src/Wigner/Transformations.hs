@@ -16,13 +16,13 @@ type FunctionCorrespondence = S.SymbolCorrespondence -> OperatorPosition -> Oper
 -- In order to simplify resulting expressions we need to know which deltas are real-valued.
 -- This function conjugates only complex-valued deltas in the expression
 -- (which means those with different variables).
--- WARNING: works only with products of delta-functions.
+-- WARNING: works only with products of delta-functions;
+-- all delta-functions with variables must be restricted delta functions
 conjugateDeltas expr = mapFuncFactors processFactor expr where
     processFactor (Factor (ConjFunc e)) = makeExpr (Func e)
     processFactor (Factor f@(Func (Element s i []))) = makeExpr f
-    processFactor (Factor f@(Func (Element s i [v1, v2])))
-        | v1 == v2 = makeExpr f
-        | otherwise = makeExpr (conjugate f)
+    processFactor (Factor (Func (Element s i [v1, v2])))
+        = makeExpr (Func (Element s i [v2, v1]))
 
 funcDiffCommutator :: Function -> Differential -> Expr
 funcDiffCommutator (Func _) (Diff (ConjFunc _)) = D.zero
