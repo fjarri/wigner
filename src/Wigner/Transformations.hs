@@ -2,7 +2,9 @@ module Wigner.Transformations(
     wignerTransformation,
     ) where
 
+import Wigner.Complex
 import Wigner.Expression
+import Wigner.Deltas
 import Wigner.ExpressionHelpers
 import qualified Wigner.Symbols as S
 import qualified Wigner.DefineExpression as D
@@ -10,6 +12,14 @@ import qualified Wigner.DefineExpression as D
 
 data OperatorPosition = Before | After
 type FunctionCorrespondence = S.SymbolCorrespondence -> OperatorPosition -> Operator -> Expr
+
+funcDiffCommutator :: Function -> Differential -> Expr
+funcDiffCommutator (Func _) (Diff (ConjFunc _)) = D.zero
+funcDiffCommutator (ConjFunc _) (Diff (Func _)) = D.zero
+funcDiffCommutator f@(Func fe) d@(Diff (Func de)) =
+    if sameSymbol fe de then makeDeltas fe de else D.zero
+funcDiffCommutator f@(ConjFunc _) d@(Diff (ConjFunc _)) =
+    conjugate (funcDiffCommutator (conjugate f) (conjugate d))
 
 wignerCorrespondence :: FunctionCorrespondence
 wignerCorrespondence s_corr Before (Op e) =
@@ -26,19 +36,16 @@ wignerCorrespondence s_corr After (DaggerOp e) =
     ce = S.mapElementWith s_corr e
 
 phaseSpaceTransformation :: FunctionCorrespondence -> S.SymbolCorrespondence -> Symbol -> Expr -> Expr
-phaseSpaceTransformation f_corr s_corr op_kernel (Expr s) =
-        sum (map processTerm (terms s)) where
+phaseSpaceTransformation f_corr s_corr kernel expr =
+        derivativesToFront $ mapOpFactors processOpFactor expr where
     corr = f_corr s_corr
 
-    isKernel (Op (Element op_kernel [] [])) = True
+    isKernel (Op (Element kernel [] [])) = True
     isKernel _ = False
 
-    processTerm (c, Term opf fs) = makeExpr c * makeExpr (Term Nothing fs) * processOpFactor opf
-
-    processOpFactor Nothing = D.one
-    processOpFactor (Just (SymmetricProduct _)) =
+    processOpFactor (SymmetricProduct _) =
         error "Not implemented: phase-space transformation of symmetric operator product"
-    processOpFactor (Just (NormalProduct ops)) =
+    processOpFactor (NormalProduct ops) =
         operatorsToFunctions (factorsExpanded ops)
 
     operatorsToFunctions [op]
@@ -47,6 +54,25 @@ phaseSpaceTransformation f_corr s_corr op_kernel (Expr s) =
     operatorsToFunctions (op:ops)
         | isKernel op == True = corr After (last ops) * operatorsToFunctions (op:(init ops))
         | otherwise = corr Before op * operatorsToFunctions ops
+
+derivativesToFront :: Expr -> Expr
+derivativesToFront expr = mapTerms processTerm expr where
+    processTerm (Term opf gs) = makeExpr (Term opf []) * processGroups gs
+
+    processGroups [] = D.one
+    processGroups [g] = makeExpr g
+    processGroups (g@(DiffProduct _):gs) = makeExpr g * processGroups gs
+    processGroups ((FuncProduct fs):(DiffProduct ds):gs) =
+        derivativesToFront (mixGroups (factorsExpanded fs) (factorsExpanded ds) * makeExpr gs)
+
+    mixGroups :: [FuncFactor] -> [Differential] -> Expr
+    mixGroups fs [d] = makeExpr (init fs) * (d_expr * f_expr - comm f d) where
+        f = last fs
+        d_expr = makeExpr d
+        f_expr = makeExpr f
+    mixGroups fs (d:ds) = mixGroups fs [d] * makeExpr ds
+
+    comm (Factor f) d = funcDiffCommutator f d
 
 wignerTransformation :: S.SymbolCorrespondence -> Symbol -> Expr -> Expr
 wignerTransformation = phaseSpaceTransformation wignerCorrespondence
