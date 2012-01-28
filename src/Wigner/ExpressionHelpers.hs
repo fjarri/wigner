@@ -33,6 +33,9 @@ productFromFactor f = fromFactors [(f, 1)]
 class Expressable a where
     makeExpr :: a -> Expr
 
+instance Expressable a => Expressable [a] where
+    makeExpr xs = product (map makeExpr xs)
+
 instance Expressable Int where makeExpr x = fromInteger (fromIntegral x :: Integer) :: Expr
 instance Expressable Rational where makeExpr x = fromRational x :: Expr
 instance Expressable (Complex Rational) where makeExpr x = fromComplexRational x :: Expr
@@ -55,9 +58,7 @@ instance Expressable (Maybe OpFactor) where
     makeExpr Nothing = exprFromTerm identityTerm
     makeExpr (Just x) = makeExpr x
 instance Expressable FuncGroup where
-    makeExpr x = makeExpr [x]
-instance Expressable [FuncGroup] where
-    makeExpr x = exprFromTerm (Term Nothing x)
+    makeExpr x = exprFromTerm (Term Nothing [x])
 instance Expressable Term where
     makeExpr = exprFromTerm
 instance Expressable FuncFactor where
