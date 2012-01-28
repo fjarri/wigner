@@ -48,37 +48,41 @@ test_linear = fpe @?= result where
     fpe = transform $ commutator hamiltonian rho
     result = -d_psi_j * f_psi_k + conjugate (d_psi_k * f_psi_j)
 
-test_nonlinear = showTex fpe @?= showTex result where
+nonlinear_low_order = d_psi_j * (
+        -f_psi_j' * f_psi_k * conjugate f_psi_k' +
+        djk * dxx'' * f_psi_k / 2 +
+        dxx' * f_psi_j' / 2
+    ) +
+    conjugate d_psi_j' * (
+        conjugate f_psi_j * f_psi_k * conjugate f_psi_k' -
+        djk * dxx * conjugate f_psi_k' / 2 -
+        dxx' * conjugate f_psi_j / 2
+    ) +
+    d_psi_k' * (
+        -f_psi_j' * conjugate f_psi_j * f_psi_k +
+        djk * dxx * f_psi_j' / 2 +
+        cdxx' * f_psi_k / 2
+    ) +
+    conjugate d_psi_k * (
+        f_psi_j' * conjugate f_psi_j * conjugate f_psi_k' -
+        djk * dxx'' * conjugate f_psi_j / 2 -
+        cdxx' * conjugate f_psi_k' / 2
+    )
+nonlinear_high_order = d_psi_j * conjugate d_psi_j' * d_psi_k' * f_psi_k / 4 -
+    d_psi_j * conjugate d_psi_j' * conjugate d_psi_k * conjugate f_psi_k' / 4 +
+    d_psi_k' * conjugate d_psi_k * d_psi_j * f_psi_j' / 4 -
+    d_psi_k' * conjugate d_psi_k * conjugate d_psi_j' * conjugate f_psi_j / 4
+
+test_nonlinear = fpe @?= nonlinear_low_order + nonlinear_high_order where
     hamiltonian = dagger psi_j * dagger psi_k' * psi_j' * psi_k
     fpe = transform $ commutator hamiltonian rho
-    result =
-        d_psi_j * (
-            -f_psi_j' * f_psi_k * conjugate f_psi_k' +
-            djk * dxx'' * f_psi_k / 2 +
-            dxx' * f_psi_j' / 2
-        ) +
-        conjugate d_psi_j' * (
-            conjugate f_psi_j * f_psi_k * conjugate f_psi_k' -
-            djk * dxx * conjugate f_psi_k' / 2 -
-            dxx' * conjugate f_psi_j / 2
-        ) +
-        d_psi_k' * (
-            -f_psi_j' * conjugate f_psi_j * f_psi_k +
-            djk * dxx * f_psi_j' / 2 +
-            cdxx' * f_psi_k / 2
-        ) +
-        conjugate d_psi_k * (
-            f_psi_j' * conjugate f_psi_j * conjugate f_psi_k' -
-            djk * dxx'' * conjugate f_psi_j / 2 -
-            cdxx' * conjugate f_psi_k' / 2
-        ) +
-        d_psi_j * conjugate d_psi_j' * d_psi_k' * f_psi_k / 4 -
-        d_psi_j * conjugate d_psi_j' * conjugate d_psi_k * conjugate f_psi_k' / 4 +
-        d_psi_k' * conjugate d_psi_k * d_psi_j * f_psi_j' / 4 -
-        d_psi_k' * conjugate d_psi_k * conjugate d_psi_j' * conjugate f_psi_j / 4
 
+test_nonlinear_truncated = fpe @?= nonlinear_low_order where
+    hamiltonian = dagger psi_j * dagger psi_k' * psi_j' * psi_k
+    fpe = T.truncateDifferentials 2 (transform $ commutator hamiltonian rho)
 
 test_group = testGroup "Expectations" [
         testCase "linear" test_linear,
-        testCase "nonlinear" test_nonlinear
+        testCase "nonlinear" test_nonlinear,
+        testCase "nonlinear_truncated" test_nonlinear_truncated
     ]

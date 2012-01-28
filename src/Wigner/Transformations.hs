@@ -1,5 +1,6 @@
 module Wigner.Transformations(
     wignerTransformation,
+    truncateDifferentials,
     ) where
 
 import Wigner.Complex
@@ -86,3 +87,9 @@ derivativesToFront expr = mapTerms processTerm expr where
 
 wignerTransformation :: S.SymbolCorrespondence -> Symbol -> Expr -> Expr
 wignerTransformation = phaseSpaceTransformation wignerCorrespondence
+
+truncateDifferentials :: Int -> Expr -> Expr
+truncateDifferentials n expr = mapTerms processTerm expr where
+    processTerm t@(Term Nothing [DiffProduct ds, FuncProduct fs])
+        | length (factorsExpanded ds) <= n = makeExpr t
+        | otherwise = D.zero
