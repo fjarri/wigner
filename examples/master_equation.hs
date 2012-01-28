@@ -20,7 +20,7 @@ corr = M.fromList [(s_psi, s_psi)]
 
 commutator x y = x * y - y * x
 
-hamiltonian = psi_j * psi_k
+hamiltonian = dagger psi_j * psi_k
 master_eqn = commutator hamiltonian rho
 fpe = T.wignerTransformation corr s_rho master_eqn
 
