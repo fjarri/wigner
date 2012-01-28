@@ -281,7 +281,7 @@ showTexIV is vs = indices_str ++ variables_str where
         n -> "_{" ++ unwords (map showTex is) ++ "}"
     variables_str = if null vs
         then ""
-        else "(" ++ unwords (map showTex vs) ++ ")"
+        else "(" ++ L.intercalate ", " (map showTex vs) ++ ")"
 
 addPower :: Int -> String -> Bool -> String
 addPower 1 s need_parentheses = s
