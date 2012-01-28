@@ -4,6 +4,7 @@ import qualified Wigner.Symbols as S
 import qualified Wigner.DefineExpression as D
 import Wigner.Expression
 import Wigner.OperatorAlgebra
+import Wigner.Deltas
 
 import Data.Ratio
 
