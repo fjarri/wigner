@@ -65,7 +65,6 @@ derivativesToFront expr = mapTerms processTerm expr where
     processGroups ((FuncProduct fs):(DiffProduct ds):gs) =
         derivativesToFront (mixGroups (factorsExpanded fs) (factorsExpanded ds) * makeExpr gs)
 
-    mixGroups :: [FuncFactor] -> [Differential] -> Expr
     mixGroups fs [d] = makeExpr (init fs) * (d_expr * f_expr - comm f d) where
         f = last fs
         d_expr = makeExpr d
