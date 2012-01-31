@@ -110,54 +110,73 @@ showTexByDifferentials (Expr s) = unlines result_lines where
             func_str = showTex funcs
     result_lines = [showPair (head pairs)] ++ (map (("+ " ++) . showPair) (tail pairs))
 
+-- Helper function which calculates a single term for the analytical loss term formula.
+analyticalLossTerm :: S.SymbolCorrespondence -> [Operator] -> [Int] -> ([Int], [Int]) -> Expr
+analyticalLossTerm corr ops ls (js, ks) = coeff * diff_product * func_product where
 
-carthesianProduct' :: [[a]] -> [[a]]
-carthesianProduct' [] = []
-carthesianProduct' [l] = [[x] | x <- l]
-carthesianProduct' (l:ls) = [x:xs | x <- l, xs <- carthesianProduct' ls]
+    -- Return function/differential with the same symbol as given operator
+    funcForOp corr (Op e) = Func (S.mapElementWith corr e)
+    diffForOp corr op = Diff (funcForOp corr op)
 
-carthesianProduct :: [a] -> [b] -> [(a, b)]
-carthesianProduct l1 l2 = [(x, y) | x <- l1, y <- l2]
+    -- Result of commutator [d/df, f], where function f corresponds to given operator
+    delta (Op e) = makeDeltas e e
 
-extractOpFactors :: Expr -> (Expr, [(Operator, Int)])
-extractOpFactors (Expr s) = head (map processTerm (terms s)) where
-    processTerm (c, Term (Just (NormalProduct ops)) fs) = (func_expr, op_list) where
-        func_expr = makeExpr (Term Nothing fs) * makeExpr c
-        op_list = factors ops
+    -- Returns Integer, because the result of the expression
+    -- using this result (in qTerm) can be quite big
+    fact :: Int -> Integer
+    fact n = product [1 .. (fromIntegral n :: Integer)]
 
-funcForOp corr (Op e) = Func (S.mapElementWith corr e)
-diffForOp corr op = Diff (funcForOp corr op)
-
-constructTerm :: S.SymbolCorrespondence -> [Operator] -> [Int] -> ([Int], [Int]) -> Expr
-constructTerm corr ops ls (js, ks) = makeExpr coeff * diff_product * func_product where
-    coeff = 2 - (-1) ^ (sum js) - (-1) ^ (sum ks) :: Int
-    diff_product = product (map constructDiffs (zip3 ops js ks))
-
+    -- Creates product of differentials.
     constructDiffs :: (Operator, Int, Int) -> Expr
     constructDiffs (op, j, k) = ((makeExpr . conjugate . diffForOp corr) op) ^ j *
         ((makeExpr . diffForOp corr) op) ^ k
 
-    func_product = product (map constructFuncs (L.zip4 ops ls js ks))
-
-    constructFuncs :: (Operator, Int, Int, Int) -> Expr
-    constructFuncs (op, l, j, k) = sum (map (constructFuncTerm op l j k) [0..l - max j k])
-
+    -- Numerical coefficient for the product of functions.
     qTerm :: Int -> Int -> Int -> Int -> Expr
     qTerm l j k m = makeExpr ((-1) ^ m * fact l ^ 2) /
-        makeExpr (fact j * fact k * fact m * fact (l - k - m) * fact (l - j - m) * 2 ^ (j + k + m)) where
-            fact :: Int -> Int
-            fact n = product [1..n]
+        makeExpr (fact j * fact k * fact m * fact (l - k - m) * fact (l - j - m) * 2 ^ (j + k + m))
 
+    -- Functional term for given order of delta-function.
     constructFuncTerm :: Operator -> Int -> Int -> Int -> Int -> Expr
     constructFuncTerm op l j k m = qTerm l j k m * delta op ^ m *
         (((makeExpr . funcForOp corr) op) ^ (l - j - m)) *
-        (((makeExpr . conjugate . funcForOp corr) op) ^ (l - k - m)) where
-            delta (Op e) = makeDeltas e e
+        (((makeExpr . conjugate . funcForOp corr) op) ^ (l - k - m))
 
+    -- Creates product of functions.
+    constructFuncs :: (Operator, Int, Int, Int) -> Expr
+    constructFuncs (op, l, j, k) = sum (map (constructFuncTerm op l j k) [0..l - max j k])
+
+    coeff = makeExpr (2 - (-1) ^ (sum js) - (-1) ^ (sum ks) :: Int)
+    diff_product = product (map constructDiffs (zip3 ops js ks))
+    func_product = product (map constructFuncs (L.zip4 ops ls js ks))
+
+-- Calculates Wigner transformation of loss term using analytical formula
+-- WARNING: the following assumptions are made:
+-- 1) operators in the expr commute with each other
+-- 2) [d/df, f] for every operator is the same (usually it is either 1 or delta(x, x))
 wignerOfLossTerm :: S.SymbolCorrespondence -> Expr -> Expr
 wignerOfLossTerm corr expr = op_expr * func_expr where
+
+    -- carthesian product for several lists
+    carthesianProduct' :: [[a]] -> [[a]]
+    carthesianProduct' [] = []
+    carthesianProduct' [l] = [[x] | x <- l]
+    carthesianProduct' (l:ls) = [x:xs | x <- l, xs <- carthesianProduct' ls]
+
+    -- carthesian product for two lists
+    -- (we could use more generic version, but it is easier to pattern match a tuple)
+    carthesianProduct :: [a] -> [b] -> [(a, b)]
+    carthesianProduct l1 l2 = [(x, y) | x <- l1, y <- l2]
+
+    -- Splits initial expression into functional part and the sequence of operators
+    extractOpFactors :: Expr -> (Expr, [(Operator, Int)])
+    extractOpFactors (Expr s) = head (map processTerm (terms s)) where
+        processTerm (c, Term (Just (NormalProduct ops)) fs) = (func_expr, op_list) where
+            func_expr = makeExpr (Term Nothing fs) * makeExpr c
+            op_list = factors ops
+
     (func_expr, op_list) = extractOpFactors expr
     (ops, ls) = unzip op_list
     js = carthesianProduct' (map (\x -> [0..x]) ls)
     ks = carthesianProduct' (map (\x -> [0..x]) ls)
-    op_expr = sum (map (constructTerm corr ops ls) (carthesianProduct js ks))
+    op_expr = sum (map (analyticalLossTerm corr ops ls) (carthesianProduct js ks))
