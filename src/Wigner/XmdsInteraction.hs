@@ -16,6 +16,7 @@ import Wigner.Texable
 import Data.Map as M
 import Data.Set as S
 import Data.List as L
+import qualified Control.Arrow as A
 
 extractExpectations :: Expr -> S.Set FuncFactor
 extractExpectations (Expr s) = foldl processTerm S.empty (terms s) where
@@ -70,7 +71,7 @@ data PythonExpression = Result ResultValue Expr String
 type ConstantsMap = M.Map Function String
 
 makeConstantsMap :: [(Expr, String)] -> ConstantsMap
-makeConstantsMap constants = M.fromList (L.map (\(x, s) -> (exprToFunction x, s)) constants) where
+makeConstantsMap constants = M.fromList (L.map (A.first exprToFunction) constants) where
     exprToFunction (Expr s) = head $ L.map (\(_, x) -> termToFunction x) (terms s)
     termToFunction (Term _ fs) = groupToFunction (head fs)
     groupToFunction (FuncProduct fs) = factorToFunction (head (factorsExpanded fs))

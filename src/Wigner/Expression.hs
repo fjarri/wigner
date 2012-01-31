@@ -25,6 +25,7 @@ import Wigner.Texable
 import qualified Data.Map as M
 import qualified Data.Tuple as T
 import qualified Data.List as L
+import qualified Control.Arrow as A
 
 
 -- Data types
@@ -92,7 +93,7 @@ class Product a b | a -> b where
 
     factorsExpanded x = L.intercalate [] (map (\(f, p) -> replicate p f) (factors x))
     fromFactorsExpanded x = fromFactors (map (\x -> (x, 1 :: Int)) x)
-    mapFactors f x = fromFactors (map (\(x, p) -> (f x, p)) (factors x))
+    mapFactors f x = fromFactors (map (A.first f) (factors x))
 
 instance Ord a => Product (SortedProduct a) a where
     factors = M.assocs
@@ -134,7 +135,7 @@ instance ComplexValued Differential where
 instance ComplexValued Coefficient where
     conjugate (Coefficient x) = Coefficient (conjugate x)
 instance ComplexValued Expr where
-    conjugate (Expr s) = Expr (mapTermPairs (\(c, t) -> (conjugate c, conjugate t)) s)
+    conjugate (Expr s) = Expr (mapTermPairs (conjugate A.*** conjugate) s)
 instance ComplexValued Term where
     conjugate (Term Nothing fs) = Term Nothing (map conjugate fs)
     conjugate (Term _ _) = error "Cannot conjugate operators"
@@ -159,7 +160,7 @@ instance OperatorValued Operator where
     dagger (Op e) = DaggerOp e
     dagger (DaggerOp e) = Op e
 instance OperatorValued Expr where
-    dagger (Expr s) = Expr (mapTermPairs (\(c, t) -> (conjugate c, dagger t)) s)
+    dagger (Expr s) = Expr (mapTermPairs (conjugate A.*** dagger) s)
 instance OperatorValued Term where
     dagger (Term opf fs) = Term (dagger opf) (map conjugate fs)
 instance OperatorValued OpFactor where

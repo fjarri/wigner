@@ -15,6 +15,7 @@ import qualified Wigner.DefineExpression as D
 
 import qualified Data.Map as M
 import qualified Data.List as L
+import qualified Control.Arrow as A
 
 data OperatorPosition = Before | After
 type FunctionCorrespondence = S.SymbolCorrespondence -> OperatorPosition -> Operator -> Expr
@@ -24,7 +25,7 @@ type FunctionCorrespondence = S.SymbolCorrespondence -> OperatorPosition -> Oper
 -- (which means those with different variables).
 -- WARNING: works only with products of delta-functions;
 -- all delta-functions with variables must be restricted delta functions
-conjugateDeltas expr = mapFuncFactors processFactor expr where
+conjugateDeltas = mapFuncFactors processFactor where
     processFactor (Factor (ConjFunc e)) = makeExpr (Func e)
     processFactor (Factor f@(Func (Element s i []))) = makeExpr f
     processFactor (Factor (Func (Element s i [v1, v2])))
@@ -66,20 +67,20 @@ phaseSpaceTransformation f_corr s_corr kernel expr =
         operatorsToFunctions (factorsExpanded ops)
 
     operatorsToFunctions [op]
-        | isKernel op == True = D.one
+        | isKernel op = D.one
         | otherwise = error "Kernel is missing from the expression"
     operatorsToFunctions (op:ops)
-        | isKernel op == True = corr After (last ops) * operatorsToFunctions (op:(init ops))
+        | isKernel op = corr After (last ops) * operatorsToFunctions (op : init ops)
         | otherwise = corr Before op * operatorsToFunctions ops
 
 derivativesToFront :: Expr -> Expr
-derivativesToFront expr = mapTerms processTerm expr where
+derivativesToFront = mapTerms processTerm where
     processTerm (Term opf gs) = makeExpr (Term opf []) * processGroups gs
 
     processGroups [] = D.one
     processGroups [g] = makeExpr g
     processGroups (g@(DiffProduct _):gs) = makeExpr g * processGroups gs
-    processGroups ((FuncProduct fs):(DiffProduct ds):gs) =
+    processGroups (FuncProduct fs : DiffProduct ds : gs) =
         derivativesToFront (mixGroups (factorsExpanded fs) (factorsExpanded ds) * makeExpr gs)
 
     mixGroups fs [d] = makeExpr (init fs) * (d_expr * f_expr - comm f d) where
@@ -88,13 +89,13 @@ derivativesToFront expr = mapTerms processTerm expr where
         f_expr = makeExpr f
     mixGroups fs (d:ds) = mixGroups fs [d] * makeExpr ds
 
-    comm (Factor f) d = funcDiffCommutator f d
+    comm (Factor f) = funcDiffCommutator f
 
 wignerTransformation :: S.SymbolCorrespondence -> Symbol -> Expr -> Expr
 wignerTransformation = phaseSpaceTransformation wignerCorrespondence
 
 truncateDifferentials :: Int -> Expr -> Expr
-truncateDifferentials n expr = mapTerms processTerm expr where
+truncateDifferentials n = mapTerms processTerm where
     processTerm t@(Term Nothing [DiffProduct ds, FuncProduct fs])
         | length (factorsExpanded ds) <= n = makeExpr t
         | otherwise = D.zero
@@ -108,7 +109,7 @@ showTexByDifferentials (Expr s) = unlines result_lines where
     showPair (diffs, funcs) = diff_str ++ " \\left( " ++ func_str ++ " \\right) " where
             diff_str = showTex (makeExpr (DiffProduct diffs))
             func_str = showTex funcs
-    result_lines = [showPair (head pairs)] ++ (map (("+ " ++) . showPair) (tail pairs))
+    result_lines = showPair (head pairs) : map (("+ " ++) . showPair) (tail pairs)
 
 -- Helper function which calculates a single term for the analytical loss term formula.
 analyticalLossTerm :: S.SymbolCorrespondence -> [Operator] -> [Int] -> ([Int], [Int]) -> Expr
@@ -128,8 +129,8 @@ analyticalLossTerm corr ops ls (js, ks) = coeff * diff_product * func_product wh
 
     -- Creates product of differentials.
     constructDiffs :: (Operator, Int, Int) -> Expr
-    constructDiffs (op, j, k) = ((makeExpr . conjugate . diffForOp corr) op) ^ j *
-        ((makeExpr . diffForOp corr) op) ^ k
+    constructDiffs (op, j, k) = (makeExpr . conjugate . diffForOp corr) op ^ j *
+        (makeExpr . diffForOp corr) op ^ k
 
     -- Numerical coefficient for the product of functions.
     qTerm :: Int -> Int -> Int -> Int -> Expr
@@ -139,14 +140,14 @@ analyticalLossTerm corr ops ls (js, ks) = coeff * diff_product * func_product wh
     -- Functional term for given order of delta-function.
     constructFuncTerm :: Operator -> Int -> Int -> Int -> Int -> Expr
     constructFuncTerm op l j k m = qTerm l j k m * delta op ^ m *
-        (((makeExpr . funcForOp corr) op) ^ (l - j - m)) *
-        (((makeExpr . conjugate . funcForOp corr) op) ^ (l - k - m))
+        ((makeExpr . funcForOp corr) op ^ (l - j - m)) *
+        ((makeExpr . conjugate . funcForOp corr) op ^ (l - k - m))
 
     -- Creates product of functions.
     constructFuncs :: (Operator, Int, Int, Int) -> Expr
     constructFuncs (op, l, j, k) = sum (map (constructFuncTerm op l j k) [0..l - max j k])
 
-    coeff = makeExpr (2 - (-1) ^ (sum js) - (-1) ^ (sum ks) :: Int)
+    coeff = makeExpr (2 - (-1) ^ sum js - (-1) ^ sum ks :: Int)
     diff_product = product (map constructDiffs (zip3 ops js ks))
     func_product = product (map constructFuncs (L.zip4 ops ls js ks))
 
