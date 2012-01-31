@@ -2,6 +2,7 @@ module Wigner.Transformations(
     wignerTransformation,
     truncateDifferentials,
     showTexByDifferentials,
+    wignerOfLossTerm,
     ) where
 
 import Wigner.Complex
@@ -108,3 +109,55 @@ showTexByDifferentials (Expr s) = unlines result_lines where
             diff_str = showTex (makeExpr (DiffProduct diffs))
             func_str = showTex funcs
     result_lines = [showPair (head pairs)] ++ (map (("+ " ++) . showPair) (tail pairs))
+
+
+carthesianProduct' :: [[a]] -> [[a]]
+carthesianProduct' [] = []
+carthesianProduct' [l] = [[x] | x <- l]
+carthesianProduct' (l:ls) = [x:xs | x <- l, xs <- carthesianProduct' ls]
+
+carthesianProduct :: [a] -> [b] -> [(a, b)]
+carthesianProduct l1 l2 = [(x, y) | x <- l1, y <- l2]
+
+extractOpFactors :: Expr -> (Expr, [(Operator, Int)])
+extractOpFactors (Expr s) = head (map processTerm (terms s)) where
+    processTerm (c, Term (Just (NormalProduct ops)) fs) = (func_expr, op_list) where
+        func_expr = makeExpr (Term Nothing fs) * makeExpr c
+        op_list = factors ops
+
+funcForOp corr (Op e) = Func (S.mapElementWith corr e)
+diffForOp corr op = Diff (funcForOp corr op)
+
+constructTerm :: S.SymbolCorrespondence -> [Operator] -> [Int] -> ([Int], [Int]) -> Expr
+constructTerm corr ops ls (js, ks) = makeExpr coeff * diff_product * func_product where
+    coeff = 2 - (-1) ^ (sum js) - (-1) ^ (sum ks) :: Int
+    diff_product = product (map constructDiffs (zip3 ops js ks))
+
+    constructDiffs :: (Operator, Int, Int) -> Expr
+    constructDiffs (op, j, k) = ((makeExpr . conjugate . diffForOp corr) op) ^ j *
+        ((makeExpr . diffForOp corr) op) ^ k
+
+    func_product = product (map constructFuncs (L.zip4 ops ls js ks))
+
+    constructFuncs :: (Operator, Int, Int, Int) -> Expr
+    constructFuncs (op, l, j, k) = sum (map (constructFuncTerm op l j k) [0..l - max j k])
+
+    qTerm :: Int -> Int -> Int -> Int -> Expr
+    qTerm l j k m = makeExpr ((-1) ^ m * fact l ^ 2) /
+        makeExpr (fact j * fact k * fact m * fact (l - k - m) * fact (l - j - m) * 2 ^ (j + k + m)) where
+            fact :: Int -> Int
+            fact n = product [1..n]
+
+    constructFuncTerm :: Operator -> Int -> Int -> Int -> Int -> Expr
+    constructFuncTerm op l j k m = qTerm l j k m * delta op ^ m *
+        (((makeExpr . funcForOp corr) op) ^ (l - j - m)) *
+        (((makeExpr . conjugate . funcForOp corr) op) ^ (l - k - m)) where
+            delta (Op e) = makeDeltas e e
+
+wignerOfLossTerm :: S.SymbolCorrespondence -> Expr -> Expr
+wignerOfLossTerm corr expr = op_expr * func_expr where
+    (func_expr, op_list) = extractOpFactors expr
+    (ops, ls) = unzip op_list
+    js = carthesianProduct' (map (\x -> [0..x]) ls)
+    ks = carthesianProduct' (map (\x -> [0..x]) ls)
+    op_expr = sum (map (constructTerm corr ops ls) (carthesianProduct js ks))
