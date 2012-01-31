@@ -36,7 +36,8 @@ class Expressable a where
 instance Expressable a => Expressable [a] where
     makeExpr xs = product (map makeExpr xs)
 
-instance Expressable Int where makeExpr x = fromInteger (fromIntegral x :: Integer) :: Expr
+instance Expressable Integer where makeExpr x = fromInteger x :: Expr
+instance Expressable Int where makeExpr x = makeExpr (fromIntegral x :: Integer)
 instance Expressable Rational where makeExpr x = fromRational x :: Expr
 instance Expressable (Complex Rational) where makeExpr x = fromComplexRational x :: Expr
 instance Expressable Coefficient where makeExpr x = Expr (fromCoeff x)
