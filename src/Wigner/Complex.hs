@@ -34,8 +34,10 @@ class ComplexNum a where
 instance (Texable a, Ord a, Num a) => Texable (Complex a) where
     showTex (x :+ y)
         | y == 0 = sx
+        | x == 0 && y == 1 = "i"
+        | x == 0 && y == -1 = "-i"
         | x == 0 = sy ++ "i"
-        | otherwise = "(" ++ sx ++ sign ++ sy ++ "i)"
+        | otherwise = "(" ++ showTex (x :+ 0) ++ sign ++ showTex (0 :+ y) ++ ")"
         where
             sx = showTex x
             sy = showTex y
