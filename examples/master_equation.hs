@@ -40,7 +40,7 @@ loss_terms =
     gamma 2 2 * lossTerm (a 2 * a 2) +
     gamma 2 2 * lossTerm (b 2 * b 2)
 
-master_eqn = commutator hamiltonian rho + loss_terms
+master_eqn = -D.i * commutator hamiltonian rho + loss_terms
 
 fpe = T.wignerTransformation S.default_map s_rho master_eqn
 
