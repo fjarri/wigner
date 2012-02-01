@@ -6,26 +6,43 @@ import Wigner.Texable
 import Wigner.Expression
 
 import qualified Data.Map as M
+import qualified Data.List as L
 
-s_psi = S.symbol "\\Psi"
-x = Func (Element S.x [] [])
-psi_j = D.operatorFuncIx s_psi [S.ix_j] [x]
-psi_k = D.operatorFuncIx s_psi [S.ix_k] [x]
+index :: Integer -> Index
+index i = S.index (fromInteger i :: Int)
+
+a i = D.operatorIx S.a [index i]
+b i = D.operatorIx S.b [index i]
 
 s_rho = S.symbol "\\rho"
-
 rho = D.operator s_rho
 
-corr = M.fromList [(s_psi, s_psi)]
+kappa i = D.constantIx (S.symbol "\\kappa") [index i]
+g i j = D.constantIx (S.symbol "g") (L.sort [index i, index j])
+gamma i j = D.constantIx (S.symbol "\\gamma") (L.sort [index i, index j])
 
 commutator x y = x * y - y * x
+lossTerm x = 2 * x * rho * dagger x - dagger x * x * rho - rho * dagger x * x
 
-hamiltonian = dagger psi_j * psi_k
-master_eqn = commutator hamiltonian rho
-fpe = T.wignerTransformation corr s_rho master_eqn
+hamiltonian =
+    sum (map
+        (\i -> kappa i * (dagger (a i) * b i + dagger (b i) * a i))
+    [1, 2])
+    + sum (map
+        (\(i, j) -> g i j * (
+            dagger (a i) * dagger (a j) * a j * a i +
+            dagger (b i) * dagger (b j) * b j * b i
+        ) / 2)
+    [(1,1), (1,2), (2,1), (2,2)])
+loss_terms =
+    gamma 1 2 * lossTerm (a 1 * a 2) +
+    gamma 1 2 * lossTerm (b 1 * b 2) +
+    gamma 2 2 * lossTerm (a 2 * a 2) +
+    gamma 2 2 * lossTerm (b 2 * b 2)
+
+master_eqn = commutator hamiltonian rho + loss_terms
+
+fpe = T.wignerTransformation S.default_map s_rho master_eqn
 
 main = do
-    putStrLn $ "Non-truncated:"
-    putStrLn $ showTex fpe
---    putStrLn $ "Truncated:"
---    putStrLn $ showTex (T.truncateDifferentials 2 fpe)
+    putStrLn $ T.showTexByDifferentials (T.truncateDifferentials 2 fpe)
