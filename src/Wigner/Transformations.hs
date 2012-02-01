@@ -105,7 +105,10 @@ showTexByDifferentials (Expr s) = unlines result_lines where
     processTerm (c, Term Nothing [DiffProduct ds, f@(FuncProduct fs)]) =
         (ds, makeExpr c * makeExpr f)
     diff_to_expr = M.fromListWith (+) (map processTerm (terms s))
-    pairs = M.assocs diff_to_expr
+    diffOrder (ds1, fs1) (ds2, fs2) = if ds1 /= ds2
+        then compare (length (factorsExpanded ds1)) (length (factorsExpanded ds2))
+        else compare ds1 ds2
+    pairs = L.sortBy diffOrder (M.assocs diff_to_expr)
     shift s = unlines (map ("    " ++) (lines s))
     showPair (diffs, funcs) = diff_str ++ " \\left(\n" ++ shift func_str ++ "\\right) " where
             diff_str = showTex (makeExpr (DiffProduct diffs))
