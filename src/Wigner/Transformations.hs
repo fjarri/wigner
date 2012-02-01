@@ -106,10 +106,11 @@ showTexByDifferentials (Expr s) = unlines result_lines where
         (ds, makeExpr c * makeExpr f)
     diff_to_expr = M.fromListWith (+) (map processTerm (terms s))
     pairs = M.assocs diff_to_expr
-    showPair (diffs, funcs) = diff_str ++ " \\left( " ++ func_str ++ " \\right) " where
+    shift s = unlines (map ("    " ++) (lines s))
+    showPair (diffs, funcs) = diff_str ++ " \\left(\n" ++ shift func_str ++ "\\right) " where
             diff_str = showTex (makeExpr (DiffProduct diffs))
             func_str = showTex funcs
-    result_lines = showPair (head pairs) : map (("+ " ++) . showPair) (tail pairs)
+    result_lines = showPair (head pairs) : map (("+" ++) . showPair) (tail pairs)
 
 -- Helper function which calculates a single term for the analytical loss term formula.
 analyticalLossTerm :: S.SymbolCorrespondence -> [Operator] -> [Int] -> ([Int], [Int]) -> Expr
