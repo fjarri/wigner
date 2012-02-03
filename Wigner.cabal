@@ -25,12 +25,15 @@ Library
   Exposed-modules:
     Wigner.Symbols
     Wigner.DefineExpression
+    Wigner.ExpressionHelpers
     Wigner.Expectations
     Wigner.Complex
     Wigner.Texable
     Wigner.Expression
     Wigner.XmdsInteraction
     Wigner.OperatorAlgebra
+    Wigner.Transformations
+    Wigner.Deltas
 
   Build-Depends:
     base >= 4.4.0.0,
