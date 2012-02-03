@@ -19,9 +19,9 @@ import Data.List as L
 import qualified Control.Arrow as A
 
 extractExpectations :: Expr -> S.Set FuncFactor
-extractExpectations (Expr s) = foldl processTerm S.empty (terms s) where
-    processTerm accum (_, Term opf groups) = foldl processGroup accum groups
-    processGroup accum (FuncProduct fs) = foldl processFactor accum (factors fs)
+extractExpectations (Expr s) = L.foldl processTerm S.empty (terms s) where
+    processTerm accum (_, Term opf groups) = L.foldl processGroup accum groups
+    processGroup accum (FuncProduct fs) = L.foldl processFactor accum (factors fs)
     processFactor accum (Factor f, p) = accum
     processFactor accum (f@(FuncExpectation fs), p) = S.insert f accum
 
