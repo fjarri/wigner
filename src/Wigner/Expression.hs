@@ -138,6 +138,9 @@ instance Ord Matrix where
 
 -- ComplexValued instances
 
+instance ComplexValued a => ComplexValued (Maybe a) where
+    conjugate Nothing = Nothing
+    conjugate (Just x) = Just (conjugate x)
 instance ComplexValued Function where
     conjugate (Func e) = ConjFunc e
     conjugate (ConjFunc e) = Func e
@@ -148,8 +151,10 @@ instance ComplexValued Coefficient where
 instance ComplexValued Expr where
     conjugate (Expr s) = Expr (mapTermPairs (conjugate A.*** conjugate) s)
 instance ComplexValued Term where
-    conjugate (Term Nothing fs) = Term Nothing (map conjugate fs)
-    conjugate (Term _ _) = error "Cannot conjugate operators"
+    conjugate (Term opf fs) = Term (conjugate opf) (map conjugate fs)
+instance ComplexValued OpFactor where
+    conjugate mp@(MatProduct _) = mp
+    conjugate _ = error "Not implemented: cannot conjugate operators"
 instance ComplexValued FuncGroup where
     conjugate (DiffProduct fs) = DiffProduct (mapFactors conjugate fs)
     conjugate (FuncProduct fs) = FuncProduct (mapFactors conjugate fs)
