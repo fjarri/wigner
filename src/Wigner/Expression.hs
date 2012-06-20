@@ -17,7 +17,7 @@ module Wigner.Expression(
     terms, fromTerms, emptySum,
     identityTerm,
     fromCoeff,
-    dagger,
+    dagger, transpose,
     factors, factorsExpanded, fromFactors, fromFactorsExpanded
     ) where
 
@@ -198,6 +198,8 @@ instance MatrixValued Operator where
     transpose _ = error "Not implemented: transposing operators"
 instance MatrixValued Expr where
     transpose (Expr s) = Expr (mapTermPairs (id A.*** transpose) s)
+    transpose (Expr2by2 e11 e12 e21 e22) =
+        Expr2by2 (transpose e11) (transpose e21) (transpose e12) (transpose e22)
 instance MatrixValued Term where
     transpose (Term opf fs) = Term (transpose opf) fs
 instance MatrixValued OpFactor where
@@ -259,8 +261,19 @@ instance Num Coefficient where
 
 instance Num Expr where
     negate (Expr ts) = Expr (mapCoefficients negate ts)
+    negate (Expr2by2 x11 x12 x21 x22) = Expr2by2 (negate x11) (negate x12) (negate x21) (negate x22)
     (Expr ts1) + (Expr ts2) = Expr (addSums ts1 ts2)
+    (Expr2by2 x11 x12 x21 x22) + (Expr2by2 y11 y12 y21 y22)
+        = Expr2by2 (x11 + y11) (x12 + y12) (x21 + y21) (x22 + y22)
     (Expr ts1) * (Expr ts2) = Expr (mulSums ts1 ts2)
+    (Expr2by2 x11 x12 x21 x22) * y@(Expr _) = Expr2by2 (x11 * y) (x12 * y) (x21 * y) (x22 * y)
+    y@(Expr _) * (Expr2by2 x11 x12 x21 x22) = Expr2by2 (y * x11) (y * x12) (y * x21) (y * x22)
+    (Expr2by2 x11 x12 x21 x22) * (Expr2by2 y11 y12 y21 y22)
+        = Expr2by2
+            (x11 * y11 + x12 * y21)
+            (x11 * y12 + x12 * y22)
+            (x21 * y11 + x22 * y21)
+            (x21 * y12 + x22 * y22)
     fromInteger 0 = Expr zeroSum
     fromInteger x = Expr $ fromTerms [(c, t)] where
         t = identityTerm
@@ -419,3 +432,6 @@ instance Texable Expr where
             showTexList (tc:[]) = showTexTuple False tc
             showTexList (tc:tcs) = showTexList [tc] ++ "\n" ++
                 unlines (map (showTexTuple True) tcs)
+    showTex (Expr2by2 x11 x12 x21 x22) = "\\begin{pmatrix}\n" ++
+            showTex x11 ++ " & " ++ showTex x12 ++ " \\\\\n" ++
+            showTex x21 ++ " & " ++ showTex x22 ++ "\n\\end{pmatrix}"
