@@ -53,6 +53,10 @@ instance Expressable Operator where
     makeExpr x = exprFromTerm term where
         term = Term (Just op_product) []
         op_product = NormalProduct (productFromFactor x)
+instance Expressable Matrix where
+    makeExpr x = exprFromTerm term where
+        term = Term (Just mat_product) []
+        mat_product = MatProduct (productFromFactor x)
 instance Expressable OpFactor where
     makeExpr x = exprFromTerm (Term (Just x) [])
 instance Expressable (Maybe OpFactor) where

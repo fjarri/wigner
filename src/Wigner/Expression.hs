@@ -7,6 +7,7 @@ module Wigner.Expression(
     Element(..),
     Function(..),
     Operator(..),
+    Matrix(..),
     Differential(..),
     Term(..),
     OpFactor(..),
@@ -37,6 +38,7 @@ data Function = Func Element | ConjFunc Element deriving (Show, Eq)
 
 data Operator = Op Element | DaggerOp Element deriving (Show, Eq)
 data Differential = Diff Function deriving (Show, Eq, Ord)
+data Matrix = Mat Element | TMat Element deriving (Show, Eq)
 
 data Coefficient = Coefficient (Complex Rational) deriving (Show, Eq)
 
@@ -44,17 +46,21 @@ type SortedProduct a = M.Map a Int
 type OrderedProduct a = [(a, Int)]
 type SortedSum a = M.Map a Coefficient
 
-data Expr = Expr (SortedSum Term) deriving (Show, Eq)
+data Expr = Expr (SortedSum Term)
+          | Expr2by2 Expr Expr Expr Expr
+          deriving (Show, Eq)
 data Term = Term (Maybe OpFactor) [FuncGroup] deriving (Show, Eq, Ord)
 data FuncGroup = DiffProduct (SortedProduct Differential)
                | FuncProduct (SortedProduct FuncFactor)
                deriving (Show, Eq, Ord)
 data OpFactor = NormalProduct (OrderedProduct Operator)
               | SymmetricProduct (SortedProduct Operator)
+              | MatProduct (OrderedProduct Matrix)
               deriving (Show, Eq, Ord)
 data FuncFactor = Factor Function
                 | FuncExpectation (SortedProduct Function)
                 | OpExpectation OpFactor
+                | Trace OpFactor
                 deriving (Show, Eq, Ord)
 
 
@@ -123,6 +129,11 @@ instance Ord Operator where
     compare (Op e1) (DaggerOp e2) = compareWithFallback GT e1 e2
     compare (DaggerOp e1) (Op e2) = compareWithFallback LT e1 e2
     compare (DaggerOp e1) (DaggerOp e2) = compare e1 e2
+instance Ord Matrix where
+    compare (Mat e1) (Mat e2) = compare e1 e2
+    compare (Mat e1) (TMat e2) = compareWithFallback GT e1 e2
+    compare (TMat e1) (Mat e2) = compareWithFallback LT e1 e2
+    compare (TMat e1) (TMat e2) = compare e1 e2
 
 
 -- ComplexValued instances
@@ -146,6 +157,8 @@ instance ComplexValued FuncFactor where
     conjugate (Factor f) = Factor (conjugate f)
     conjugate (FuncExpectation fs) = FuncExpectation (mapFactors conjugate fs)
     conjugate (OpExpectation opf) = error "Not implemented: conjugation of operator product expectation"
+instance ComplexValued Matrix where
+    conjugate x = x
 
 
 -- OperatorValued instances
@@ -168,6 +181,34 @@ instance OperatorValued OpFactor where
         operators = factorsExpanded ops
         dagger_operators = (reverse . map dagger) operators
     dagger (SymmetricProduct ops) = SymmetricProduct (mapFactors dagger ops)
+instance OperatorValued Matrix where
+    dagger (Mat e) = TMat e
+    dagger (TMat e) = Mat e
+
+
+-- MatrixValued instances
+
+class MatrixValued a where
+    transpose :: a -> a
+
+instance MatrixValued a => MatrixValued (Maybe a) where
+    transpose Nothing = Nothing
+    transpose (Just x) = Just (transpose x)
+instance MatrixValued Operator where
+    transpose _ = error "Not implemented: transposing operators"
+instance MatrixValued Expr where
+    transpose (Expr s) = Expr (mapTermPairs (id A.*** transpose) s)
+instance MatrixValued Term where
+    transpose (Term opf fs) = Term (transpose opf) fs
+instance MatrixValued OpFactor where
+    transpose (MatProduct mats) = MatProduct (fromFactorsExpanded transpose_matrices) where
+        matrices = factorsExpanded mats
+        transpose_matrices = (reverse . map transpose) matrices
+    transpose (NormalProduct ops) = error "Not implemented: transposing operators"
+    transpose (SymmetricProduct ops) = error "Not implemented: transposing operators"
+instance MatrixValued Matrix where
+    transpose (Mat e) = TMat e
+    transpose (TMat e) = Mat e
 
 
 -- Arithmetic helpers
@@ -189,6 +230,8 @@ mulOpFactors (Just x) Nothing = Just x
 mulOpFactors Nothing (Just x) = Just x
 mulOpFactors (Just (NormalProduct x)) (Just (NormalProduct y)) = Just (NormalProduct op_list) where
     op_list = fromFactors (factors x ++ factors y)
+mulOpFactors (Just (MatProduct x)) (Just (MatProduct y)) = Just (MatProduct mat_list) where
+    mat_list = fromFactors (factors x ++ factors y)
 mulOpFactors _ _ = error "Not implemented: multiplication with symmetric products"
 
 mulTerms :: Term -> Term -> Term
@@ -273,6 +316,9 @@ instance Superscriptable Differential where
 instance Superscriptable FuncFactor where
     needsParentheses (Factor f) = needsParentheses f
     needsParentheses _ = False
+instance Superscriptable Matrix where
+    needsParentheses (Mat e) = False
+    needsParentheses (TMat e) = True
 
 showTexIV :: [Index] -> [Function] -> String
 showTexIV is vs = indices_str ++ variables_str where
@@ -329,12 +375,17 @@ instance Texable Operator where
     showTex (Op (Element s is vs)) = "\\hat{" ++ showTex s ++ "}" ++ showTexIV is vs
     showTex (DaggerOp e) = showTex (Op e) ++ "^\\dagger"
 
+instance Texable Matrix where
+    showTex (Mat e) = showTex e
+    showTex (TMat e) = showTex (Mat e) ++ "^T"
+
 instance Texable Differential where
     showTex (Diff f) = makeDiff (diffSymbol f) (showTex f)
 
 instance Texable OpFactor where
     showTex (NormalProduct ops) = showTexProduct ops
     showTex (SymmetricProduct ops) = "\\symprod{" ++ showTexProduct ops ++ "}"
+    showTex (MatProduct mats) = showTexProduct mats
 
 instance Texable FuncGroup where
     showTex (FuncProduct fs) = showTexProduct fs
@@ -344,6 +395,7 @@ instance Texable FuncFactor where
     showTex (Factor f) = showTex f
     showTex (OpExpectation opf) = "\\langle" ++ showTex opf ++ "\\rangle"
     showTex (FuncExpectation fs) = "\\pathavg{" ++ showTexProduct fs ++ "}"
+    showTex (Trace opf) = "\\mathrm{Tr}\\{ " ++ showTex opf ++ " \\}"
 
 instance Texable Term where
     showTex (Term Nothing fs) = showTex fs
