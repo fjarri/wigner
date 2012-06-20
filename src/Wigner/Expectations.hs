@@ -25,7 +25,7 @@ deltaSquared :: Expr -> Expr
 deltaSquared x = variance x x
 
 expectation :: Expr -> Expr
-expectation = mapOpFactors (makeExpr . OpExpectation) where
+expectation = mapOpFactors (makeExpr . OpExpectation)
 
 evaluateExpectations :: TargetFormConverter -> S.SymbolCorrespondence -> Expr -> Expr
 evaluateExpectations tfc sc = replaceExpectations sc . applyConverter tfc
