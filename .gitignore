@@ -1,3 +1,5 @@
 dist/*
 wigner.tmproj
+*.hi
+*.o
 
