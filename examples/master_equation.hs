@@ -19,6 +19,7 @@ rho = D.operator s_rho
 
 kappa i = D.constantIx (S.symbol "\\kappa") [index i]
 g i j = D.constantIx (S.symbol "g") (L.sort [index i, index j])
+gamma1 i = D.constantIx (S.symbol "\\gamma") [index i]
 gamma2 i j = D.constantIx (S.symbol "\\gamma") (L.sort [index i, index j])
 gamma3 i j k = D.constantIx (S.symbol "\\gamma") (L.sort [index i, index j, index k])
 
@@ -36,12 +37,14 @@ hamiltonian =
         ) / 2)
     [(1,1), (1,2), (2,1), (2,2)])
 loss_terms =
+    gamma1 1 * lossTerm (a 1) +
+    gamma1 1 * lossTerm (b 1) +
     gamma2 1 2 * lossTerm (a 1 * a 2) +
     gamma2 1 2 * lossTerm (b 1 * b 2) +
     gamma2 2 2 * lossTerm (a 2 * a 2) +
-    gamma2 2 2 * lossTerm (b 2 * b 2) +
-    gamma3 1 1 1 * lossTerm (a 1 * a 1 * a 1) +
-    gamma3 1 1 1 * lossTerm (b 1 * b 1 * b 1)
+    gamma2 2 2 * lossTerm (b 2 * b 2)
+    --gamma3 1 1 1 * lossTerm (a 1 * a 1 * a 1) +
+    --gamma3 1 1 1 * lossTerm (b 1 * b 1 * b 1)
 
 master_eqn = -D.i * commutator hamiltonian rho + loss_terms
 
