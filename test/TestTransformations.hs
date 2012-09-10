@@ -90,7 +90,7 @@ createAnalyticalTest (name, expr) = testCase name tc_func where
     analytical = T.wignerOfLossTerm corr expr
     tc_func = calculated @?= analytical
 
-test_group = testGroup "Expectations" [
+test_group = testGroup "Wigner transformations" [
         testCase "linear" test_linear,
         testCase "nonlinear" test_nonlinear,
         testCase "nonlinear_truncated" test_nonlinear_truncated,
