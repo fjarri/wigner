@@ -1,5 +1,6 @@
 module Wigner.Transformations(
     wignerTransformation,
+    positivePTransformation,
     truncateDifferentials,
     showTexByDifferentials,
     wignerOfLossTerm,
@@ -18,7 +19,9 @@ import qualified Data.List as L
 import qualified Control.Arrow as A
 
 data OperatorPosition = Before | After
-type FunctionCorrespondence = S.SymbolCorrespondence -> OperatorPosition -> Operator -> Expr
+type PhaseSpaceCorrespondence = OperatorPosition -> Operator -> Expr
+type FunctionCorrespondence = S.SymbolCorrespondence -> PhaseSpaceCorrespondence
+type FunctionCorrespondence2 = S.SymbolCorrespondence2 -> PhaseSpaceCorrespondence
 
 -- In order to simplify resulting expressions we need to know which deltas are real-valued.
 -- This function conjugates only complex-valued deltas in the expression
@@ -42,23 +45,37 @@ funcDiffCommutator f@(ConjFunc _) d@(Diff (ConjFunc _)) =
 wignerCorrespondence :: FunctionCorrespondence
 wignerCorrespondence s_corr Before (Op e) =
     makeExpr (Func ce) + makeExpr (Diff (ConjFunc ce)) / 2 where
-    ce = S.mapElementWith s_corr e
+        ce = S.mapElementWith s_corr e
 wignerCorrespondence s_corr Before (DaggerOp e) =
     makeExpr (ConjFunc ce) - makeExpr (Diff (Func ce)) / 2 where
-    ce = S.mapElementWith s_corr e
+        ce = S.mapElementWith s_corr e
 wignerCorrespondence s_corr After (Op e) =
     makeExpr (Func ce) - makeExpr (Diff (ConjFunc ce)) / 2 where
-    ce = S.mapElementWith s_corr e
+        ce = S.mapElementWith s_corr e
 wignerCorrespondence s_corr After (DaggerOp e) =
     makeExpr (ConjFunc ce) + makeExpr (Diff (Func ce)) / 2 where
-    ce = S.mapElementWith s_corr e
+        ce = S.mapElementWith s_corr e
 
-phaseSpaceTransformation :: FunctionCorrespondence -> S.SymbolCorrespondence -> Symbol -> Expr -> Expr
-phaseSpaceTransformation f_corr s_corr kernel expr =
+positivePCorrespondence :: FunctionCorrespondence2
+positivePCorrespondence s_corr2 Before (Op e) =
+    makeExpr (Func ce1) where
+        (ce1, ce2) = S.mapElementPairWith s_corr2 e
+positivePCorrespondence s_corr2 Before (DaggerOp e) =
+    makeExpr (Func ce2) - makeExpr (Diff (Func ce1)) where
+        (ce1, ce2) = S.mapElementPairWith s_corr2 e
+positivePCorrespondence s_corr2 After (Op e) =
+    makeExpr (Func ce1) - makeExpr (Diff (Func ce2)) where
+        (ce1, ce2) = S.mapElementPairWith s_corr2 e
+positivePCorrespondence s_corr2 After (DaggerOp e) =
+    makeExpr (Func ce2) where
+        (ce1, ce2) = S.mapElementPairWith s_corr2 e
+
+
+phaseSpaceTransformation :: PhaseSpaceCorrespondence -> Symbol -> Expr -> Expr
+phaseSpaceTransformation corr kernel expr =
         derivativesToFront $ mapOpFactors processOpFactor expr where
-    corr = f_corr s_corr
 
-    isKernel (Op (Element kernel [] [])) = True
+    isKernel (Op (Element sym [] [])) = sym == kernel
     isKernel _ = False
 
     processOpFactor (SymmetricProduct _) =
@@ -92,7 +109,10 @@ derivativesToFront = mapTerms processTerm where
     comm (Factor f) = funcDiffCommutator f
 
 wignerTransformation :: S.SymbolCorrespondence -> Symbol -> Expr -> Expr
-wignerTransformation = phaseSpaceTransformation wignerCorrespondence
+wignerTransformation s_corr = phaseSpaceTransformation (wignerCorrespondence s_corr)
+
+positivePTransformation :: S.SymbolCorrespondence2 -> Symbol -> Expr -> Expr
+positivePTransformation s_corr2 = phaseSpaceTransformation (positivePCorrespondence s_corr2)
 
 truncateDifferentials :: Int -> Expr -> Expr
 truncateDifferentials n = mapTerms processTerm where
