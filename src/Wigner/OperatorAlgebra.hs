@@ -21,7 +21,7 @@ bosonicCommutationRelation (DaggerOp _) (DaggerOp _) = D.zero
 bosonicCommutationRelation (Op x) (DaggerOp y) = if sameSymbol x y
     then makeDeltas x y
     else D.zero
-bosonicCommutationRelation (DaggerOp x) (Op y) = - bosonicCommutationRelation (Op x) (DaggerOp y)
+bosonicCommutationRelation (DaggerOp x) (Op y) = - bosonicCommutationRelation (Op y) (DaggerOp x)
 
 -- Transform all operator products in the expression to normal products
 toNormalProduct :: Expr -> Expr

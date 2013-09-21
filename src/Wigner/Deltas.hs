@@ -23,7 +23,7 @@ makeIndexDelta (IndexInt x, IndexInt y) = if x /= y
 makeIndexDelta (x, y) = makeExpr (Func (Element delta (L.sort [x, y]) []))
 
 makeVariableDelta :: (Function, Function) -> Expr
-makeVariableDelta (x, y) = makeExpr (Func (Element delta [] [x, y]))
+makeVariableDelta (x, y) = makeExpr (Func (Element delta [] [y, x]))
 
 sameSymbol :: Element -> Element -> Bool
 sameSymbol (Element s1 _ _) (Element s2 _ _) = s1 == s2
