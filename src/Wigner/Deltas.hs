@@ -29,6 +29,11 @@ sameSymbol :: Element -> Element -> Bool
 sameSymbol (Element s1 _ _) (Element s2 _ _) = s1 == s2
 
 makeDeltas :: Element -> Element -> Expr
+-- uncomment when different components have different basis sets,
+-- and therefore restricted deltas depend on the component
+--makeDeltas (Element s1 [i1] [v1]) (Element s2 [i2] [v2])
+--    | (s1 /= s2) || (i1 /= i2) = makeExpr (0 :: Integer)
+--    | otherwise = makeExpr (Func (Element delta [i1] [v2, v1]))
 makeDeltas (Element s1 i1 v1) (Element s2 i2 v2) = product deltas where
         deltas = map makeIndexDelta indices_diff ++ map makeVariableDelta variables_diff
         indices_diff = differences i1 i2
